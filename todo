@@ -1,0 +1,8 @@
+INC = 0.01
+DELTA = 20
+ALPHA = -0.01
+GAP0 = 0.15
+AMPX = 0.1
+AMPY = 0.1
+
+See claude convo for sufficient statistics to collect in each bin.
