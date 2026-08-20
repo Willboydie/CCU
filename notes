@@ -1,0 +1,41 @@
+LiDAR Scanning Solution For Finding Cartesian Points of Interest
+
+1. The system is given a set of XY coordinates of interest. Its ultimate task is to find their 
+corresponding Z values in the environment.
+2. The angular space is divided into 10mrad pixel bins.
+3. The azimuth of each point is computed. The elevation will be changed until r_target is discovered (or not) 
+by solving r = cos(elevation) * |(x, y)|.
+4. For each XY point, in azimuth order (left to right): 
+    a) The system uses Point2Point mode to traverse the azimuth strip within its FOV (one commanded motion
+    to the start, another to the end, all points within saved.)
+    b) If the system finds two r values sufficiently close either side of r_target, the closest pixel
+    is identified. If finds a discontinuity where r should be, or a range of continuous values which
+    doesn't include r, then the point is marked NOT_VISIBLE.
+    c) The system dwells at the pixel of interest, performing a small-amplitude lissajous centred on it.
+    d) The system keeps the resulting dwell point cloud, and uses it to estimate the true Z value.
+
+Comprise the system as follows:
+- An AzimuthPointFinder class which implements the point finding algorithm.
+- A PointCloud class which is a container for general point cloud data.
+- A DwellPointCloud class which is a child of PointCloud, contains dwell data and owns the methods for extracting a Z 
+value from it.
+- An AdaptiveScanController class which uses LidarController to command the device and receive data back. Uses 
+AzimuthPointFinder and DwellPointCloud.
+
+Write a test GUI which implements this system given a single point of interest, dwell scanning params. Assume a simplified spherical
+mapping of motor angles to cartestian points:
+x = r * math.cos(theta) * math.cos(phi) 
+y = r * math.sin(theta) * math.cos(phi)
+z = r * math.sin(phi)
+where theta = azimuth, phi=elevation, and the origin (pointing straight ahead [1, 0, 0]) is (theta=0, phi=0).
+
+As yet undefined: 
+- the method of estimation of true Z from raw dwell point clouds.
+
+A good coarse scan:
+INC = 0.01
+DELTA = 20
+ALPHA = -0.01
+GAP0 = 0.15
+AMPX = 0.1
+AMPY = 0.1

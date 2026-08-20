@@ -1,8 +1,4 @@
-INC = 0.01
-DELTA = 20
-ALPHA = -0.01
-GAP0 = 0.15
-AMPX = 0.1
-AMPY = 0.1
-
-See claude convo for sufficient statistics to collect in each bin.
+Test new point finding system in the office
+Add LDM signal strength to control packet.
+Test scan speed parameters, tracking speed CCU-side.
+Y Angle bounds have changed.
