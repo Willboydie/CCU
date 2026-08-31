@@ -56,7 +56,7 @@ void test_sort_left_to_right() {
     check(pts[0].y > pts[1].y && pts[1].y > pts[2].y, "left-to-right is descending azimuth");
 }
 
-void test_bracket_finds_closest_bin() {
+void test_bracket_picks_lowest_elevation() {
     AzimuthPointFinder finder;
     const auto& cfg = finder.config();
     PointCloud strip = fill_strip(2.5f, 5.5f, 0.0f, cfg.elev_min, cfg.elev_max, 0.002f);
@@ -64,8 +64,27 @@ void test_bracket_finds_closest_bin() {
     check(a.hit.visibility == PointVisibility::Found, "smooth crossing is Found");
     check(a.hit.bin_index >= 0, "Found has a bin");
     check_near(a.hit.range, a.hit.r_target, cfg.range_match_tol_m, "chosen bin near r_target");
-    check_near(a.hit.range * std::cos(a.hit.elevation), a.target_horiz, 0.35f,
-               "implied |(x,y)| near target");
+
+    int other = -1;
+    for (std::size_t t = 1; t < a.bins.size(); ++t) {
+        const ElevationBin& lo = a.bins[t - 1];
+        const ElevationBin& hi = a.bins[t];
+        if (!lo.occupied || !hi.occupied)
+            continue;
+        const bool straddle =
+            (lo.residual <= 0.0f && hi.residual >= 0.0f) ||
+            (lo.residual >= 0.0f && hi.residual <= 0.0f);
+        if (!straddle)
+            continue;
+        if (std::fabs(lo.residual) > cfg.range_match_tol_m ||
+            std::fabs(hi.residual) > cfg.range_match_tol_m)
+            continue;
+        other = hi.index;
+        check(a.hit.bin_index == lo.index, "bracket uses the lower-elevation bin");
+        check(a.hit.elevation <= hi.elevation, "chosen elevation is the lower of the pair");
+        break;
+    }
+    check(other >= 0, "test found a bracketing pair");
 }
 
 void test_surface_in_front_is_not_visible() {
@@ -149,7 +168,7 @@ void test_dwell_z_stub_and_binary_roundtrip() {
 
 int main() {
     test_sort_left_to_right();
-    test_bracket_finds_closest_bin();
+    test_bracket_picks_lowest_elevation();
     test_surface_in_front_is_not_visible();
     test_surface_behind_is_not_visible();
     test_gap_at_crossing_is_not_visible();

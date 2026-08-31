@@ -74,7 +74,8 @@ public:
 
     // Bin the strip by elevation, then look for two neighbouring occupied
     // bins whose residuals (r_meas - r_target) straddle zero and are each
-    // within range_match_tol_m. The closer of the two is the pixel.
+    // within range_match_tol_m. Of those candidates, the lowest-elevation
+    // pixel is the hit.
     //
     // NOT_VISIBLE when:
     //   - a range jump or empty-bin gap sits where the crossing should be, or

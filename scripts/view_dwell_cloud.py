@@ -82,6 +82,12 @@ def records_to_xyz(records: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return xyz, r
 
 
+def subtract_bias(xyz: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Remove the cloud centroid so the dwell patch is plotted about the origin."""
+    bias = np.mean(xyz, axis=0)
+    return xyz - bias, bias
+
+
 def colour_by_range(r: np.ndarray) -> np.ndarray:
     if r.size == 0:
         return np.zeros((0, 3))
@@ -103,7 +109,7 @@ def print_header(path: Path, header: dict, n_valid: int, n_total: int) -> None:
     print(f"  samples       {n_valid} valid / {n_total} total")
 
 
-def visualise(xyz: np.ndarray, colours: np.ndarray, header: dict) -> None:
+def visualise(xyz: np.ndarray, colours: np.ndarray, header: dict, bias: np.ndarray) -> None:
     import open3d as o3d
 
     geometries = []
@@ -113,12 +119,16 @@ def visualise(xyz: np.ndarray, colours: np.ndarray, header: dict) -> None:
     cloud.colors = o3d.utility.Vector3dVector(colours)
     geometries.append(cloud)
 
-    axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.3, origin=[0, 0, 0])
-    geometries.append(axes)
+    # extent = float(np.max(np.linalg.norm(xyz, axis=1))) if xyz.size else 0.3
+    # axes = o3d.geometry.TriangleMesh.create_coordinate_frame(
+    #     size=max(0.05, 0.4 * extent), origin=[0, 0, 0]
+    # )
+    # geometries.append(axes)
 
-    tx, ty = float(header["target_x"]), float(header["target_y"])
-    zmin = float(xyz[:, 2].min()) - 0.2 if xyz.size else -0.5
-    zmax = float(xyz[:, 2].max()) + 0.2 if xyz.size else 0.5
+    tx = float(header["target_x"]) - bias[0]
+    ty = float(header["target_y"]) - bias[1]
+    zmin = float(xyz[:, 2].min()) - 0.05
+    zmax = float(xyz[:, 2].max()) + 0.05
     target_line = o3d.geometry.LineSet(
         points=o3d.utility.Vector3dVector([[tx, ty, zmin], [tx, ty, zmax]]),
         lines=o3d.utility.Vector2iVector([[0, 1]]),
@@ -151,11 +161,13 @@ def main() -> int:
         print("no valid returns to plot", file=sys.stderr)
         return 1
 
+    xyz, bias = subtract_bias(xyz)
+    print(f"  bias (mean)   ({bias[0]:.3f}, {bias[1]:.3f}, {bias[2]:.3f}) m")
     print(f"  xyz range     x[{xyz[:, 0].min():.3f}, {xyz[:, 0].max():.3f}]  "
           f"y[{xyz[:, 1].min():.3f}, {xyz[:, 1].max():.3f}]  "
-          f"z[{xyz[:, 2].min():.3f}, {xyz[:, 2].max():.3f}]")
+          f"z[{xyz[:, 2].min():.3f}, {xyz[:, 2].max():.3f}]  (after bias)")
 
-    visualise(xyz, colour_by_range(r), header)
+    visualise(xyz, colour_by_range(r), header, bias)
     return 0
 
 

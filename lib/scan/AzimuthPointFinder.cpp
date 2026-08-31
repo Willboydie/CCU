@@ -86,18 +86,15 @@ StripAnalysis AzimuthPointFinder::analyse(float target_x, float target_y,
     auto close = [&](float e) { return std::fabs(e) <= cfg_.range_match_tol_m; };
 
     int best_single = -1;
-    float best_single_e = 1e30f;
     for (int i : occ) {
         const float ae = std::fabs(out.bins[static_cast<std::size_t>(i)].residual);
-        if (ae <= cfg_.range_match_tol_m && ae < best_single_e) {
-            best_single_e = ae;
+        if (ae <= cfg_.range_match_tol_m) {
             best_single = i;
+            break;
         }
     }
 
     int best_i = -1;
-    int best_j = -1;
-    float best_pair = 1e30f;
     bool bad_crossing = false;
 
     for (std::size_t t = 1; t < occ.size(); ++t) {
@@ -116,12 +113,8 @@ StripAnalysis AzimuthPointFinder::analyse(float target_x, float target_y,
             bad_crossing = true;
             continue;
         }
-        const float score = std::min(std::fabs(a.residual), std::fabs(b.residual));
-        if (score < best_pair) {
-            best_pair = score;
-            best_i = i;
-            best_j = j;
-        }
+        best_i = i;
+        break;
     }
 
     auto fill_hit = [&](int idx) {
@@ -136,9 +129,7 @@ StripAnalysis AzimuthPointFinder::analyse(float target_x, float target_y,
     };
 
     if (best_i >= 0) {
-        const float ei = std::fabs(out.bins[static_cast<std::size_t>(best_i)].residual);
-        const float ej = std::fabs(out.bins[static_cast<std::size_t>(best_j)].residual);
-        fill_hit(ei <= ej ? best_i : best_j);
+        fill_hit(best_i);
         out.reason = "bracket";
         return out;
     }

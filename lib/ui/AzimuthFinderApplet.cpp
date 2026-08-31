@@ -162,7 +162,7 @@ std::string dwell_output_path(float x, float y) {
 #endif
     char name[160];
     std::snprintf(name, sizeof(name),
-                  "dwell_x%.2f_y%.2f_%04d%02d%02d_%02d%02d%02d.bin",
+                  "dwell_x%.2f_y%.2f.bin",
                   x, y, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
                   tm.tm_hour, tm.tm_min, tm.tm_sec);
     const auto dir = executable_dir() / "dwells";

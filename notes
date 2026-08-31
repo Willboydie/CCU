@@ -29,8 +29,13 @@ y = r * math.sin(theta) * math.cos(phi)
 z = r * math.sin(phi)
 where theta=azimuth, phi=elevation, and the origin (pointing straight ahead [1, 0, 0]) is (theta=0, phi=0).
 
+How Z is extracted from dwell piont clouds:
+- fit a plane to the cloud centred mid-pixel
+- find the point on that plane closest to the target [x, y]
+- return the associated z
+- OPTIONAL UPGRADE: edge detection and multiple plane fitting (leave out unless it becomes obviously required - high risk of fitting to noise)
+
 As yet undefined:
-- the method of estimation of true Z from raw dwell point clouds.
 - a sophisticated mapping between motor angles and true module pointing direction with reference to the centre of the device.
 
 Work Plan
@@ -39,6 +44,13 @@ Gate 2: Build out the AzimuthPointFinder class.
 Gate 3: Build out the PointCloud and DwellPointCloud classes. Leave the Z estimation method empty for now.
 Gate 4: Build the AdaptiveScanController class.
 A gate is only passed when the developer (me) OKs the design.
+
+Decent dwell params:
+AMPX = 0.05
+AMPY = 0.05
+freqX = 3.0
+freqY = 3.6
+dwell period = 2.0s
 
 A good coarse scan:
 INC = 0.01
