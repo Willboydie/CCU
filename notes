@@ -27,10 +27,18 @@ mapping of motor angles to cartestian points:
 x = r * math.cos(theta) * math.cos(phi) 
 y = r * math.sin(theta) * math.cos(phi)
 z = r * math.sin(phi)
-where theta = azimuth, phi=elevation, and the origin (pointing straight ahead [1, 0, 0]) is (theta=0, phi=0).
+where theta=azimuth, phi=elevation, and the origin (pointing straight ahead [1, 0, 0]) is (theta=0, phi=0).
 
-As yet undefined: 
+As yet undefined:
 - the method of estimation of true Z from raw dwell point clouds.
+- a sophisticated mapping between motor angles and true module pointing direction with reference to the centre of the device.
+
+Work Plan
+Gate 1: Assemble the class header files.
+Gate 2: Build out the AzimuthPointFinder class.
+Gate 3: Build out the PointCloud and DwellPointCloud classes. Leave the Z estimation method empty for now.
+Gate 4: Build the AdaptiveScanController class.
+A gate is only passed when the developer (me) OKs the design.
 
 A good coarse scan:
 INC = 0.01

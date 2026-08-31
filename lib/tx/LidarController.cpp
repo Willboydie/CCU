@@ -27,6 +27,13 @@ void LidarController::on_control(const ControlPayload& control) {
         std::lock_guard<std::mutex> lock(mu_);
         control_ = control;
         have_control_ = true;
+        if (capturing_) {
+            constexpr std::size_t kCaptureMax = 50000;
+            if (capture_.size() < kCaptureMax)
+                capture_.push_back(control);
+            else
+                capture_overflow_ = true;
+        }
     }
     cv_.notify_all();
 }
@@ -79,6 +86,33 @@ bool LidarController::wait_for_status(StatusPred pred, std::chrono::milliseconds
     return cv_.wait_for(lock, timeout, [&] {
         return have_status_ && pred(status_);
     });
+}
+
+bool LidarController::wait_for_control(ControlPred pred, std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lock(mu_);
+    return cv_.wait_for(lock, timeout, [&] {
+        return have_control_ && pred(control_);
+    });
+}
+
+void LidarController::start_control_capture() {
+    std::lock_guard<std::mutex> lock(mu_);
+    capture_.clear();
+    capture_overflow_ = false;
+    capturing_ = true;
+}
+
+std::vector<ControlPayload> LidarController::stop_control_capture() {
+    std::lock_guard<std::mutex> lock(mu_);
+    capturing_ = false;
+    std::vector<ControlPayload> out;
+    out.swap(capture_);
+    return out;
+}
+
+bool LidarController::capture_overflow() const {
+    std::lock_guard<std::mutex> lock(mu_);
+    return capture_overflow_;
 }
 
 bool LidarController::wait_until_idle(std::chrono::milliseconds timeout) {
@@ -151,6 +185,10 @@ bool LidarController::seek_neutral() { return send(kCmdSeekNeutral); }
 
 bool LidarController::set_point_to_point_target(float x, float y) {
     return send_f32(kCmdSetPoint2PointTarget, {x, y});
+}
+
+bool LidarController::set_velocity_max(float v) {
+    return send_f32(kCmdSetVelocityMax, {v});
 }
 
 bool LidarController::begin_coarse_scanning() { return send(kCmdBeginCoarseScanning); }

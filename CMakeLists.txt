@@ -121,3 +121,22 @@ add_executable(scan_path_test
     lib/scan/RasterInfinityPath.cpp
 )
 lidar_configure_target(scan_path_test)
+
+add_executable(azimuth_finder_test
+    tests/azimuth_finder_test.cpp
+    lib/scan/AzimuthPointFinder.cpp
+    lib/scan/PointCloud.cpp
+    lib/scan/DwellPointCloud.cpp
+)
+lidar_configure_target(azimuth_finder_test)
+
+add_executable(azimuth_finder_gui
+    tests/azimuth_finder_gui.cpp
+    lib/ui/AzimuthFinderApplet.cpp
+    lib/scan/AzimuthPointFinder.cpp
+    lib/scan/PointCloud.cpp
+    lib/scan/DwellPointCloud.cpp
+    ${LIDAR_CORE_SOURCES}
+)
+lidar_configure_target(azimuth_finder_gui)
+target_link_libraries(azimuth_finder_gui PRIVATE imgui)

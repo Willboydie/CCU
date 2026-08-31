@@ -54,3 +54,4 @@ inline constexpr uint8_t kCmdScanEngineOff = 0x2C;
 inline constexpr uint8_t kCmdSetPoint2PointTarget = 0x2D;
 inline constexpr uint8_t kCmdUpdateCoarseScanCentre = 0x2E;
 inline constexpr uint8_t kCmdSeekNeutral = 0x2F;
+inline constexpr uint8_t kCmdSetVelocityMax = 0x30;

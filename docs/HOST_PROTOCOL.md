@@ -77,7 +77,7 @@ Payload `—` means `len = 0`. Units are SI unless noted. Angles are mechanical,
 | 28  | `0x1C` | `WAKE`                | —       | Exit sleep. Does not re-enable; send `DISABLE_ENABLE`.            |
 | 29  | `0x1D` | `RESTART`             | —       | Sleep then wake. Does not re-enable.                              |
 | 30  | `0x1E` | `ENTER_BOOTLOADER`    | —       | Disable, then jump to the MCU bootloader.                         |
-| 31  | `0x1F` | `GET_ERROR_MSG`       | —       | Emit each active fault as a debug frame (§7), then clear all faults. |
+| 31  | `0x1F` | `GET_ERROR_MSG`       | —       | Write each active fault as a debug packet, then clear all faults. |
 
 
 
@@ -110,7 +110,7 @@ Payload `—` means `len = 0`. Units are SI unless noted. Angles are mechanical,
 | 26  | `0x1A` | `TARGET_Y_SET`            | `float` | Axis Y setpoint (rad or rad/s).               |
 
 
-Direct `TARGET_*` writes are overridden while motors are enabled (Scan Engine updates the setpoints).
+Direct `TARGET_*` writes are overridden while Scan Engine updates are enabled.
 
 ### 3.3 Rangefinder
 
@@ -136,7 +136,7 @@ Direct `TARGET_*` writes are overridden while motors are enabled (Scan Engine up
 
 ### 3.4 Scan Engine
 
-`ON` / `OFF` select the path. Typical sequence: **enable motors → Scan Engine on → begin coarse or set a P2P target**. Motor enable starts Scan Engine target updates; motor disable stops them.
+`ENABLE` / `DISABLE` gate target writes. `ON` / `OFF` select the path. Typical sequence: **enable motors → Scan Engine on → begin coarse or set a P2P target**. Motor enable also sets the Scan Engine update gate; motor disable clears it.
 
 
 | ID  | Hex    | Command                     | Payload            | Action                                                                                                                         |
@@ -154,7 +154,7 @@ Direct `TARGET_*` writes are overridden while motors are enabled (Scan Engine up
 | 45  | `0x2D` | `SET_POINT2POINT_TARGET`    | `float x, float y` | New P2P target (rad). Valid only in point-to-point mode; must lie inside the angle limits.                                     |
 | 46  | `0x2E` | `UPDATE_COARSE_SCAN_CENTRE` | `float x, float y` | Move the coarse-scan centre. Valid only in coarse mode; centre ± amplitude must stay inside the angle limits.                  |
 | 47  | `0x2F` | `SEEK_NEUTRAL`              | —                  | Command a P2P move to the neutral pose. Valid only in point-to-point mode.                                                     |
-
+| 48  | `0x30` | `SET_VELOCITY_MAX`          | `float`            | Set the maximum velocity reached by the module during a P2P movement                                                           |
 
 ---
 
@@ -270,7 +270,7 @@ Out-of-range P2P targets, coarse centres, and amplitudes are rejected (not appli
 
 ## 7. Debug text frames
 
-Emitted only when debug mode is on (`SET_DEBUG_MODE`, `StatusPacket.debug_mode`). `GET_ERROR_MSG` replies are the same `0xFF` frames — parse them like any other debug packet.
+Emitted only when debug mode is on (`SET_DEBUG_MODE`, `StatusPacket.debug_mode`).
 
 ```
 [ header : uint8 = 0xFF ] [ len : uint16 LE ] [ payload : len bytes ]

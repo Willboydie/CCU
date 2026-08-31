@@ -82,6 +82,16 @@ void test_two_float_command() {
     check_eq_u8((*frame)[2], 0, "P2P len hi");
 }
 
+void test_set_velocity_max_command() {
+    auto frame = CommandEncoder::pack_f32(kCmdSetVelocityMax, {1.5f});
+    check(frame.has_value(), "SET_VELOCITY_MAX encodes");
+    if (!frame) return;
+    check(frame->size() == 7, "one-float command is 7 bytes");
+    check_eq_u8((*frame)[0], kCmdSetVelocityMax, "SET_VELOCITY_MAX cmd");
+    check_eq_u8((*frame)[1], 4, "len lo");
+    check_eq_u8((*frame)[2], 0, "len hi");
+}
+
 void test_command_payload_max() {
     uint8_t too_big[kCmdPayloadMax + 1]{};
     check(!CommandEncoder::pack(kCmdDisableEnable, {too_big, sizeof(too_big)}).has_value(),
@@ -444,6 +454,7 @@ int main() {
     test_command_example();
     test_zero_len_command();
     test_two_float_command();
+    test_set_velocity_max_command();
     test_command_payload_max();
     test_scan_engine_zero_len_commands();
     test_dynamic_routine_names();

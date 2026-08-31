@@ -17,6 +17,7 @@ class SerialDevice;
 class LidarController {
 public:
     using StatusPred = std::function<bool(const StatusPayload&)>;
+    using ControlPred = std::function<bool(const ControlPayload&)>;
 
     explicit LidarController(SerialDevice& device);
 
@@ -32,9 +33,14 @@ public:
     std::vector<std::string> take_text();
 
     bool wait_for_status(StatusPred pred, std::chrono::milliseconds timeout);
+    bool wait_for_control(ControlPred pred, std::chrono::milliseconds timeout);
     bool wait_until_idle(std::chrono::milliseconds timeout);
     bool wait_enabled(bool enabled, std::chrono::milliseconds timeout);
     bool wait_scan_mode(uint8_t mode, std::chrono::milliseconds timeout);
+
+    void start_control_capture();
+    std::vector<ControlPayload> stop_control_capture();
+    bool capture_overflow() const;
 
     bool set_enabled(bool enabled);
     bool set_debug_mode(bool on);
@@ -53,6 +59,7 @@ public:
     bool scan_engine_off();
     bool seek_neutral();
     bool set_point_to_point_target(float x, float y);
+    bool set_velocity_max(float v);
     bool begin_coarse_scanning();
     bool stop_coarse_scanning();
     bool update_coarse_scan_centre(float x, float y);
@@ -79,4 +86,7 @@ private:
     StatusPayload status_{};
     ControlPayload control_{};
     std::vector<std::string> text_lines_;
+    bool capturing_ = false;
+    bool capture_overflow_ = false;
+    std::vector<ControlPayload> capture_;
 };
