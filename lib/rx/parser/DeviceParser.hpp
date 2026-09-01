@@ -1,18 +1,17 @@
 #pragma once
 
+#include "IFrameParser.hpp"
+
 #include <cstdint>
-#include <functional>
 
-class DeviceParser {
+class DeviceParser : public IFrameParser {
 public:
-    using FrameHandler = std::function<void(uint8_t cmd, uint16_t len)>;
-
     DeviceParser();
 
-    void set_buffer(uint8_t* buffer, uint32_t cap);
-    void set_on_frame(FrameHandler on_frame);
-    void pump(uint8_t byte);
-    void reset();
+    void set_buffer(uint8_t* buffer, uint32_t cap) override;
+    void set_on_frame(FrameHandler on_frame) override;
+    void pump(uint8_t byte) override;
+    void reset() override;
 
 private:
     enum class State : uint8_t {

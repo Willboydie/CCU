@@ -140,3 +140,26 @@ add_executable(azimuth_finder_gui
 )
 lidar_configure_target(azimuth_finder_gui)
 target_link_libraries(azimuth_finder_gui PRIVATE imgui)
+
+set(PROJECTOR_CORE_SOURCES
+    lib/rx/serial/SerialDevice.cpp
+    lib/rx/parser/DeviceParser.cpp
+    lib/rx/parser/ProjectorParser.cpp
+    lib/rx/msg_queue/MessageQueue.cpp
+    lib/rx/MessageConsumer.cpp
+    lib/tx/ProjectorController.cpp
+)
+
+add_executable(projector_protocol_test
+    tests/projector_protocol_test.cpp
+    lib/rx/parser/ProjectorParser.cpp
+)
+lidar_configure_target(projector_protocol_test)
+
+add_executable(projector_point_gui
+    tests/projector_point_gui.cpp
+    lib/ui/ProjectorApplet.cpp
+    ${PROJECTOR_CORE_SOURCES}
+)
+lidar_configure_target(projector_point_gui)
+target_link_libraries(projector_point_gui PRIVATE imgui)

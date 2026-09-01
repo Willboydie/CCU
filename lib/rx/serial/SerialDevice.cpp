@@ -26,16 +26,18 @@ std::string native_port_name(std::string port) {
 
 }  // namespace
 
-SerialDevice::SerialDevice(std::string port, int baudrate, MessageQueue& queue)
+SerialDevice::SerialDevice(std::string port, int baudrate, MessageQueue& queue,
+                           IFrameParser* parser)
     : port_name_(native_port_name(std::move(port)))
     , baudrate_(baudrate)
     , queue_(queue)
-    , session_(std::make_shared<Session>(ioc_)) {
+    , session_(std::make_shared<Session>(ioc_))
+    , parser_(parser ? parser : &owned_parser_) {
     session_->read_buf.resize(RX_SERIAL_DEVICE_READ_BUFFER_LENGTH);
-    parser_.set_buffer(
+    parser_->set_buffer(
         ring_[current_slot_].data.data(),
         static_cast<uint32_t>(ring_[current_slot_].data.size()));
-    parser_.set_on_frame([this](uint8_t cmd, uint16_t len) {
+    parser_->set_on_frame([this](uint8_t cmd, uint16_t len) {
         publish_frame(cmd, len);
     });
 }
@@ -91,7 +93,7 @@ void SerialDevice::start() {
     start_io_thread();
     session_->on_bytes = [this](std::span<const uint8_t> bytes) {
         for (uint8_t b : bytes)
-            parser_.pump(b);
+            parser_->pump(b);
     };
     session_->running = true;
     session_->arm_read();
@@ -147,7 +149,7 @@ void SerialDevice::publish_frame(uint8_t cmd, uint16_t len) {
     queue_.push(std::move(msg));
 
     current_slot_ = next;
-    parser_.set_buffer(
+    parser_->set_buffer(
         ring_[current_slot_].data.data(),
         static_cast<uint32_t>(ring_[current_slot_].data.size()));
 }

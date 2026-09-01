@@ -2,6 +2,7 @@
 
 #include "../msg_queue/MessageQueue.hpp"
 #include "../parser/DeviceParser.hpp"
+#include "../parser/IFrameParser.hpp"
 #include "../../utils/params.hpp"
 
 #include <boost/asio.hpp>
@@ -19,7 +20,8 @@
 
 class SerialDevice {
 public:
-    SerialDevice(std::string port, int baudrate, MessageQueue& queue);
+    SerialDevice(std::string port, int baudrate, MessageQueue& queue,
+                 IFrameParser* parser = nullptr);
     ~SerialDevice();
 
     SerialDevice(const SerialDevice&) = delete;
@@ -71,5 +73,6 @@ private:
     static constexpr std::size_t kRingSlots = RX_SERIAL_DEVICE_PAYLOAD_RING_SLOTS;
     std::array<Slot, kRingSlots> ring_{};
     std::size_t current_slot_ = 0;
-    DeviceParser parser_;
+    DeviceParser owned_parser_;
+    IFrameParser* parser_ = nullptr;
 };
