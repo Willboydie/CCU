@@ -1,4 +1,22 @@
+Build a variant of the projector applet called projector_calibration_applet. 
+It use the same infrastructure, but is used to follow the following calibration routine.
+
 1. Setup the projector and independent mirror target (with built-in rangefinder).
-2. Set the projector to a certain angle in X or Y.
+2. Set the projector to a certain angle x or y, x=X or y=Y.
 3. Line up the mirror target such that the beam is perpendicular to the surface and hitting the middle of the target
-4. 
+4. Use the rangefinder to measure the distance between the target mirror surface and the galvo mirror.
+5. Move the galvo mirror in fine increments until the beam dot traverses 1cm across the mirror.
+6. Save the angular increment associated with a 1cm movement on the surface and use the rangefinder distance 
+to compute the implied derivative f'(x=X).
+7. Do this for a range of values of x and y and save the data for offline estimation of the slope map.
+
+a) There should be a button called "begin measure" which requires an input field of rangefinder length, a dropdown selection of X vs Y and primes the system to save traversal distance.
+b) Also, a button called "log derivative" which looks at the number of 16bit increments between the initial value (from upon thhe last click of "begin measure") and the present value. The applet should display "<XorY>: "<StartValue>" for each derivative logged.
+d) Finally, a button called "save data" which saves the logged derivatives in a .bin file. Data should be <XorY><StartValue><DerivativeValue> and so on for each datum point logged.
+e) The user flow:
+1. Move to a starting point of their choice
+2. Line up the target mirror and read the rangefinder distance
+3. Input the ranegfinder distance, make sure the correct axis (X vs Y) is selected and click "begin measure".
+4. Use the increment field and arrows to move the beam dot 1cm across the target.
+5. Click "log derivative".
+6. Repeat for a range of x and y values and click "save data" when ready.

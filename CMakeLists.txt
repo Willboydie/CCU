@@ -163,3 +163,11 @@ add_executable(projector_point_gui
 )
 lidar_configure_target(projector_point_gui)
 target_link_libraries(projector_point_gui PRIVATE imgui)
+
+add_executable(projector_calibration_gui
+    tests/projector_calibration_gui.cpp
+    lib/ui/ProjectorCalibrationApplet.cpp
+    ${PROJECTOR_CORE_SOURCES}
+)
+lidar_configure_target(projector_calibration_gui)
+target_link_libraries(projector_calibration_gui PRIVATE imgui)

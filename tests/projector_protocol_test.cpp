@@ -1,5 +1,6 @@
 #include "rx/parser/ProjectorParser.hpp"
 #include "tx/CommandEncoder.hpp"
+#include "utils/projector_calibration.hpp"
 #include "utils/projector_protocol.hpp"
 
 #include <cstdint>
@@ -128,6 +129,15 @@ void test_saturate() {
     check_eq_u16(saturate_dac(32768), kProjDacCentre, "centre");
 }
 
+void test_calib_derivative() {
+    check(sizeof(ProjectorCalibDatum) == 7, "calib datum is 7 packed bytes");
+    float d = 0;
+    check(calib_derivative(1.0f, 100, d), "deriv ok");
+    check(d > 9.9e-5f && d < 1.01e-4f, "f' = 0.01 / (1.0 * 100)");
+    check(!calib_derivative(0.0f, 100, d), "zero range rejected");
+    check(!calib_derivative(1.0f, 0, d), "zero ΔDAC rejected");
+}
+
 }  // namespace
 
 int main() {
@@ -135,6 +145,7 @@ int main() {
     test_parse_status();
     test_parse_debug_and_raw();
     test_saturate();
+    test_calib_derivative();
     if (g_fails) {
         std::fprintf(stderr, "%d projector protocol tests failed\n", g_fails);
         return 1;
