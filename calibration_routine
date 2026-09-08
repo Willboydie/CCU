@@ -11,7 +11,7 @@ to compute the implied derivative f'(x=X).
 7. Do this for a range of values of x and y and save the data for offline estimation of the slope map.
 
 a) There should be a button called "begin measure" which requires an input field of rangefinder length, a dropdown selection of X vs Y and primes the system to save traversal distance.
-b) Also, a button called "log derivative" which looks at the number of 16bit increments between the initial value (from upon thhe last click of "begin measure") and the present value. The applet should display "<XorY>: "<StartValue>" for each derivative logged.
+b) Also, a button called "log derivative" which looks at the number of 16bit increments between the initial value (from upon the last click of "begin measure") and the present value. The applet should display "<XorY>: "<StartValue>" for each derivative logged.
 d) Finally, a button called "save data" which saves the logged derivatives in a .bin file. Data should be <XorY><StartValue><DerivativeValue> and so on for each datum point logged.
 e) The user flow:
 1. Move to a starting point of their choice

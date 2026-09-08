@@ -1,5 +1,6 @@
 #include "rx/parser/ProjectorParser.hpp"
 #include "tx/CommandEncoder.hpp"
+#include "utils/esp_now_protocol.hpp"
 #include "utils/projector_calibration.hpp"
 #include "utils/projector_protocol.hpp"
 
@@ -138,6 +139,38 @@ void test_calib_derivative() {
     check(!calib_derivative(1.0f, 0, d), "zero ΔDAC rejected");
 }
 
+void test_esp_now_lines() {
+    const EspLine slave = parse_esp_line(
+        "SLAVE,2,AA:BB:CC:DD:EE:FF,1234,2000,-62,GOOD,SELECTED");
+    check(slave.kind == EspLineKind::Slave, "SLAVE kind");
+    check(slave.slave == 2, "SLAVE id");
+    check(slave.mac == "AA:BB:CC:DD:EE:FF", "SLAVE mac");
+    check(slave.intensity == 1234, "SLAVE intensity");
+    check(slave.rssi == -62, "SLAVE rssi");
+    check(slave.state == "SELECTED", "SLAVE state");
+
+    const EspLine sample = parse_esp_line("SAMPLE_RESULT,T1,5,2,1500,1999,-55");
+    check(sample.kind == EspLineKind::SampleResult, "SAMPLE_RESULT kind");
+    check(sample.target == "T1", "SAMPLE_RESULT target");
+    check(sample.sample == 5, "SAMPLE_RESULT sample");
+    check(sample.slave == 2, "SAMPLE_RESULT slave");
+    check(sample.intensity == 1500, "SAMPLE_RESULT intensity");
+    check(sample.rssi == -55, "SAMPLE_RESULT rssi");
+
+    const EspLine active = parse_esp_line("ACTIVE,T1,2,1500,1999,-55");
+    check(active.kind == EspLineKind::Active, "ACTIVE kind");
+    check(active.slave == 2, "ACTIVE slave");
+
+    const EspLine rssi_nr = parse_esp_line("RSSI,3,NO_REPLY,POOR");
+    check(rssi_nr.kind == EspLineKind::Rssi, "RSSI no-reply kind");
+    check(rssi_nr.rssi_no_reply, "RSSI no-reply flag");
+    check(rssi_nr.slave == 3, "RSSI no-reply slave");
+
+    const EspLine err = parse_esp_line("ERROR,no active slave selected");
+    check(err.kind == EspLineKind::Error, "ERROR kind");
+    check(err.error == "no active slave selected", "ERROR text");
+}
+
 }  // namespace
 
 int main() {
@@ -146,6 +179,7 @@ int main() {
     test_parse_debug_and_raw();
     test_saturate();
     test_calib_derivative();
+    test_esp_now_lines();
     if (g_fails) {
         std::fprintf(stderr, "%d projector protocol tests failed\n", g_fails);
         return 1;

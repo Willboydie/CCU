@@ -171,3 +171,12 @@ add_executable(projector_calibration_gui
 )
 lidar_configure_target(projector_calibration_gui)
 target_link_libraries(projector_calibration_gui PRIVATE imgui)
+
+add_executable(projector_esp_gui
+    tests/projector_esp_gui.cpp
+    lib/ui/ProjectorEspApplet.cpp
+    lib/rx/serial/SerialTextPort.cpp
+    ${PROJECTOR_CORE_SOURCES}
+)
+lidar_configure_target(projector_esp_gui)
+target_link_libraries(projector_esp_gui PRIVATE imgui)
