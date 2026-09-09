@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+// Host GUI for the Teensy projector: PATH circle streaming and POINT nudging.
 class ProjectorApplet {
 public:
     struct Host {

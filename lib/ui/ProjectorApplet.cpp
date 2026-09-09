@@ -11,12 +11,20 @@
 #include <algorithm>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 
 constexpr int kDutyMin = 15;
 constexpr int kDutyMax = 99;
+constexpr int kCentreDefault =
+    (static_cast<int>(kProjPathDacMin) + static_cast<int>(kProjPathDacMax)) / 2;
+constexpr int kRadiusDefault = 4000;
+constexpr int kPathIncrementDefault = 64;
+constexpr int kStreamRateMinKhz = 1;
+constexpr int kStreamRateMaxKhz = 100;
+constexpr int kStreamRateDefaultKhz = 20;
 
 void glfw_error(int, const char* desc) {
     std::fprintf(stderr, "GLFW: %s\n", desc ? desc : "");
@@ -35,6 +43,14 @@ struct ProjectorApplet::Impl {
     std::string last_error;
     int increment = 256;
     int duty_percent = 50;
+    int centre_x = kCentreDefault;
+    int centre_y = kCentreDefault;
+    int radius = kRadiusDefault;
+    int path_increment = kPathIncrementDefault;
+    int stream_rate_khz = kStreamRateDefaultKhz;
+    int stream_cx = kCentreDefault;
+    int stream_cy = kCentreDefault;
+    int stream_r = kRadiusDefault;
 
     explicit Impl(Host& h) : host(h) {}
 
@@ -112,6 +128,9 @@ struct ProjectorApplet::Impl {
         ImGui::SameLine();
         if (connected()) {
             if (ImGui::Button("Disconnect") && host.disconnect) {
+                with_ctl([&](ProjectorController* c) {
+                    if (c) (void)c->stop_path_stream();
+                });
                 host.disconnect();
                 banner = "Disconnected";
             }
@@ -141,7 +160,7 @@ struct ProjectorApplet::Impl {
     }
 
     void draw_status(bool have, const ProjectorStatus& s) {
-        ImGui::BeginChild("status", ImVec2(0, 72), ImGuiChildFlags_Border);
+        ImGui::BeginChild("status", ImVec2(0, 88), ImGuiChildFlags_Border);
         ImGui::TextUnformatted("Device status");
         ImGui::Separator();
         if (!have) {
@@ -154,10 +173,78 @@ struct ProjectorApplet::Impl {
                     proj_mode_name(s.project_mode),
                     s.enabled ? "yes" : "no",
                     s.projecting ? "yes" : "no");
-        ImGui::Text("duty %u%%   fault %s",
+        ImGui::Text("duty %u%%   stream %s   meas %u kHz   fault %s",
                     static_cast<unsigned>(s.laser_duty_cycle),
+                    proj_stream_name(s.stream_state),
+                    static_cast<unsigned>(s.points_frequency),
                     s.has_fault ? "YES" : "no");
         ImGui::EndChild();
+    }
+
+    void clamp_path_fields() {
+        centre_x = std::clamp(centre_x, static_cast<int>(kProjPathDacMin),
+                              static_cast<int>(kProjPathDacMax));
+        centre_y = std::clamp(centre_y, static_cast<int>(kProjPathDacMin),
+                              static_cast<int>(kProjPathDacMax));
+        const int max_r = max_circle_radius(centre_x, centre_y);
+        radius = std::clamp(radius, 0, max_r);
+        path_increment = std::clamp(path_increment, 1, static_cast<int>(kProjDacMax));
+        stream_rate_khz = std::clamp(stream_rate_khz, kStreamRateMinKhz, kStreamRateMaxKhz);
+        duty_percent = std::clamp(duty_percent, kDutyMin, kDutyMax);
+        increment = std::clamp(increment, 1, static_cast<int>(kProjDacMax));
+    }
+
+    void draw_mode_toggle(bool on, bool have_status, uint8_t mode, bool streaming) {
+        ImGui::TextUnformatted("Project mode");
+        ImGui::SameLine();
+        const bool can = on && have_status && !streaming;
+        const bool path = mode == kProjModePath;
+
+        if (!can) ImGui::BeginDisabled();
+
+        if (path)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.45f, 0.28f, 1));
+        if (ImGui::Button("PATH", ImVec2(88, 28)) && !path) {
+            bool ok = false;
+            with_ctl([&](ProjectorController* c) {
+                if (c) ok = c->set_project_mode(kProjModePath);
+            });
+            note_cmd("PATH", ok);
+        }
+        if (path) ImGui::PopStyleColor();
+
+        ImGui::SameLine();
+        if (!path)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.45f, 0.28f, 1));
+        if (ImGui::Button("POINT", ImVec2(88, 28)) && path) {
+            bool ok = false;
+            with_ctl([&](ProjectorController* c) {
+                if (c) ok = c->set_project_mode(kProjModePoint);
+            });
+            note_cmd("POINT", ok);
+        }
+        if (!path) ImGui::PopStyleColor();
+
+        if (!can) ImGui::EndDisabled();
+        if (streaming) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("stop stream to change mode");
+        }
+    }
+
+    void draw_duty(bool on) {
+        if (!on) ImGui::BeginDisabled();
+        ImGui::SetNextItemWidth(220);
+        ImGui::SliderInt("Duty %", &duty_percent, kDutyMin, kDutyMax);
+        ImGui::SameLine();
+        if (ImGui::Button("Set##duty", ImVec2(72, 0))) {
+            bool ok = false;
+            with_ctl([&](ProjectorController* c) {
+                if (c) ok = c->set_laser_duty_cycle(static_cast<uint16_t>(duty_percent));
+            });
+            note_cmd("Duty", ok);
+        }
+        if (!on) ImGui::EndDisabled();
     }
 
     bool pad_btn(const char* label, bool enabled, int dx, int dy) {
@@ -173,17 +260,13 @@ struct ProjectorApplet::Impl {
         return hit;
     }
 
-    void draw_controls(bool on, bool have_status, bool pointing,
-                       uint16_t x, uint16_t y) {
-        ImGui::BeginChild("controls", ImVec2(0, 0), ImGuiChildFlags_Border);
+    void draw_point_controls(bool on, bool have_status, bool pointing,
+                             uint16_t x, uint16_t y) {
         ImGui::TextUnformatted("Point mode");
         ImGui::Separator();
 
-        increment = std::clamp(increment, 1, static_cast<int>(kProjDacMax));
-        duty_percent = std::clamp(duty_percent, kDutyMin, kDutyMax);
         const bool can_arm = on && have_status;
         const bool can_nudge = on && pointing;
-        const bool can_duty = on;
 
         if (!can_arm) ImGui::BeginDisabled();
         const char* arm_label = pointing ? "Disable" : "Enable";
@@ -226,20 +309,103 @@ struct ProjectorApplet::Impl {
         ImGui::Text("Commanded  X %u   Y %u   (centre %u)",
                     static_cast<unsigned>(x), static_cast<unsigned>(y),
                     static_cast<unsigned>(kProjDacCentre));
+    }
+
+    void draw_path_controls(bool on, bool have_status, bool streaming) {
+        ImGui::TextUnformatted("Path mode");
+        ImGui::Separator();
+        ImGui::TextDisabled("Circle DAC range %u–%u",
+                            static_cast<unsigned>(kProjPathDacMin),
+                            static_cast<unsigned>(kProjPathDacMax));
+
+        const bool can_geom = on && have_status;
+        const bool can_setup = on && have_status && !streaming;
+        const bool can_run = on && have_status;
+        const int max_r = max_circle_radius(centre_x, centre_y);
+
+        if (!can_geom) ImGui::BeginDisabled();
+        ImGui::SetNextItemWidth(120);
+        ImGui::InputInt("Centre X", &centre_x);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120);
+        ImGui::InputInt("Centre Y", &centre_y);
+
+        ImGui::SetNextItemWidth(120);
+        ImGui::InputInt("Radius", &radius);
+        ImGui::SameLine();
+        ImGui::TextDisabled("max %d", max_r);
+        if (!can_geom) ImGui::EndDisabled();
+
+        if (!can_setup) ImGui::BeginDisabled();
+        ImGui::SetNextItemWidth(120);
+        ImGui::InputInt("Path increment", &path_increment);
+        ImGui::SetItemTooltip(
+            "Arc step between successive circle points, in DAC counts.");
+
+        ImGui::SetNextItemWidth(120);
+        ImGui::InputInt("Stream rate (kHz)", &stream_rate_khz);
+        ImGui::SetItemTooltip("SET_PLAYBACK_SPEED: point rate in kHz (1–100).");
+        if (!can_setup) ImGui::EndDisabled();
+
+        clamp_path_fields();
+        if (streaming &&
+            (centre_x != stream_cx || centre_y != stream_cy || radius != stream_r)) {
+            stream_cx = centre_x;
+            stream_cy = centre_y;
+            stream_r = radius;
+            auto pts = generate_circle_path(centre_x, centre_y, radius,
+                                            path_increment);
+            with_ctl([&](ProjectorController* c) {
+                if (c) (void)c->update_path_stream(std::move(pts));
+            });
+        }
+        ImGui::Text("Circle  %d points   %d DAC/step   %d kHz",
+                    circle_path_point_count(radius, path_increment),
+                    path_increment, stream_rate_khz);
 
         ImGui::Spacing();
-        if (!can_duty) ImGui::BeginDisabled();
-        ImGui::SetNextItemWidth(220);
-        ImGui::SliderInt("Duty %", &duty_percent, kDutyMin, kDutyMax);
-        ImGui::SameLine();
-        if (ImGui::Button("Set", ImVec2(72, 0))) {
+        if (!can_run) ImGui::BeginDisabled();
+        const char* run_label = streaming ? "Stop" : "Start";
+        if (ImGui::Button(run_label, ImVec2(120, 32))) {
             bool ok = false;
             with_ctl([&](ProjectorController* c) {
-                if (c) ok = c->set_laser_duty_cycle(static_cast<uint16_t>(duty_percent));
+                if (!c) return;
+                if (streaming) {
+                    ok = c->stop_path_stream();
+                } else {
+                    stream_cx = centre_x;
+                    stream_cy = centre_y;
+                    stream_r = radius;
+                    auto pts = generate_circle_path(centre_x, centre_y, radius,
+                                                    path_increment);
+                    ok = c->start_path_stream(std::move(pts),
+                                              static_cast<uint16_t>(stream_rate_khz),
+                                              static_cast<uint16_t>(duty_percent));
+                }
             });
-            note_cmd("Duty", ok);
+            note_cmd(run_label, ok);
         }
-        if (!can_duty) ImGui::EndDisabled();
+        if (!can_run) ImGui::EndDisabled();
+        if (streaming) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.5f, 1), "streaming circle");
+        }
+    }
+
+    void draw_controls(bool on, bool have_status, bool pointing, bool streaming,
+                       uint8_t mode, uint16_t x, uint16_t y) {
+        ImGui::BeginChild("controls", ImVec2(0, 0), ImGuiChildFlags_Border);
+        clamp_path_fields();
+        draw_mode_toggle(on, have_status, mode, streaming);
+        ImGui::Spacing();
+        draw_duty(on);
+        ImGui::Spacing();
+
+        if (mode == kProjModePath)
+            draw_path_controls(on, have_status, streaming);
+        else
+            draw_point_controls(on, have_status, pointing, x, y);
+
         ImGui::EndChild();
     }
 
@@ -247,7 +413,7 @@ struct ProjectorApplet::Impl {
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(vp->WorkPos);
         ImGui::SetNextWindowSize(vp->WorkSize);
-        ImGui::Begin("Projector Point Mode", nullptr,
+        ImGui::Begin("Projector", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                          ImGuiWindowFlags_NoSavedSettings);
 
@@ -256,6 +422,7 @@ struct ProjectorApplet::Impl {
         bool on = false;
         bool have_status = false;
         bool pointing = false;
+        bool streaming = false;
         uint16_t x = kProjDacCentre;
         uint16_t y = kProjDacCentre;
         ProjectorStatus status{};
@@ -264,13 +431,15 @@ struct ProjectorApplet::Impl {
             if (!c) return;
             have_status = c->has_status();
             pointing = c->pointing();
+            streaming = c->streaming();
             x = c->x();
             y = c->y();
             if (have_status) status = c->status();
         });
 
         draw_status(have_status, status);
-        draw_controls(on, have_status, pointing, x, y);
+        const uint8_t mode = have_status ? status.project_mode : kProjModePath;
+        draw_controls(on, have_status, pointing, streaming, mode, x, y);
         ImGui::End();
     }
 };
@@ -300,7 +469,7 @@ int ProjectorApplet::run(std::atomic<bool>* keep_running) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 #endif
 
-    impl_->window = glfwCreateWindow(560, 480, "Projector Point Mode", nullptr, nullptr);
+    impl_->window = glfwCreateWindow(620, 680, "Projector", nullptr, nullptr);
     if (!impl_->window) {
         glfwTerminate();
         return 1;
@@ -328,6 +497,9 @@ int ProjectorApplet::run(std::atomic<bool>* keep_running) {
         glfwPollEvents();
         impl_->drain_text();
         impl_->poll_status();
+        impl_->with_ctl([](ProjectorController* c) {
+            if (c) c->pump_stream();
+        });
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -343,6 +515,10 @@ int ProjectorApplet::run(std::atomic<bool>* keep_running) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(impl_->window);
     }
+
+    impl_->with_ctl([](ProjectorController* c) {
+        if (c) (void)c->stop_path_stream();
+    });
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

@@ -130,6 +130,61 @@ void test_saturate() {
     check_eq_u16(saturate_dac(32768), kProjDacCentre, "centre");
 }
 
+void test_stream_and_circle() {
+    uint8_t rec[5]{};
+    pack_stream_record(rec, 0x1234, 0xABCD, true);
+    check_eq_u8(rec[0], 0x12, "stream X hi");
+    check_eq_u8(rec[1], 0x34, "stream X lo");
+    check_eq_u8(rec[2], 0xAB, "stream Y hi");
+    check_eq_u8(rec[3], 0xCD, "stream Y lo");
+    check_eq_u8(rec[4], 1, "stream laser on");
+
+    uint8_t payload[6]{};
+    payload[0] = 1;
+    pack_stream_record(payload + 1, 0x0102, 0x0304, false);
+    auto frame = pack_projector_frame(kProjCmdPointStream, {payload, sizeof(payload)});
+    check(frame.has_value(), "stream frame encodes");
+    if (frame) {
+        check(frame->size() == 9, "stream frame size");
+        check_eq_u8((*frame)[0], kProjCmdPointStream, "stream cmd");
+        check_eq_u8((*frame)[1], 6, "stream len lo");
+        check_eq_u8((*frame)[2], 0, "stream len hi");
+        check_eq_u8((*frame)[3], 1, "packet index");
+    }
+
+    uint8_t too_big[kProjCmdPayloadMax + 1]{};
+    check(!pack_projector_frame(kProjCmdPointStream, {too_big, sizeof(too_big)}).has_value(),
+          "oversize stream rejected");
+
+    check_eq_u16(clamp_path_dac(0), kProjPathDacMin, "path clamp low");
+    check_eq_u16(clamp_path_dac(70000), kProjPathDacMax, "path clamp high");
+    check(max_circle_radius(33000, 33000) == 17000, "max radius at mid");
+    check(max_circle_radius(kProjPathDacMin, 33000) == 0, "max radius at edge");
+
+    const auto pts = generate_circle_path(33000, 33000, 1000, 100);
+    check(!pts.empty(), "circle not empty");
+    check(static_cast<int>(pts.size()) == circle_path_point_count(1000, 100),
+          "circle count matches");
+    for (const auto& p : pts) {
+        check(p.x >= kProjPathDacMin && p.x <= kProjPathDacMax, "circle x in range");
+        check(p.y >= kProjPathDacMin && p.y <= kProjPathDacMax, "circle y in range");
+    }
+
+    const auto clipped = generate_circle_path(20000, 20000, 20000, 64);
+    check(!clipped.empty(), "clipped circle not empty");
+    for (const auto& p : clipped) {
+        check(p.x >= kProjPathDacMin && p.x <= kProjPathDacMax, "clipped x in range");
+        check(p.y >= kProjPathDacMin && p.y <= kProjPathDacMax, "clipped y in range");
+    }
+
+    const auto dot = generate_circle_path(33000, 33000, 0, 64);
+    check(dot.size() == 1, "zero radius is one point");
+    if (!dot.empty()) {
+        check_eq_u16(dot[0].x, 33000, "dot x");
+        check_eq_u16(dot[0].y, 33000, "dot y");
+    }
+}
+
 void test_calib_derivative() {
     check(sizeof(ProjectorCalibDatum) == 7, "calib datum is 7 packed bytes");
     float d = 0;
@@ -178,6 +233,7 @@ int main() {
     test_parse_status();
     test_parse_debug_and_raw();
     test_saturate();
+    test_stream_and_circle();
     test_calib_derivative();
     test_esp_now_lines();
     if (g_fails) {

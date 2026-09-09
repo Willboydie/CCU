@@ -1,0 +1,10 @@
+^C:\USERS\WILL BOYD\ONEDRIVE\PROJECTS\SMART_MARKER\CCU\BUILD_CCU\CMAKEFILES\F50184DDE5796E5F6AEA1BA4C3D43518\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU" "-BC:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/lidar_scanning.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
