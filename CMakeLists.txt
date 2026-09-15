@@ -188,3 +188,15 @@ add_executable(projector_esp_gui
 )
 lidar_configure_target(projector_esp_gui)
 target_link_libraries(projector_esp_gui PRIVATE imgui)
+
+add_executable(frontend_gui
+    tests/frontend_gui.cpp
+    lib/ui/FrontendApplet.cpp
+    lib/tx/FrontendController.cpp
+    lib/rx/serial/SerialDevice.cpp
+    lib/rx/parser/DeviceParser.cpp
+    lib/rx/msg_queue/MessageQueue.cpp
+    lib/rx/MessageConsumer.cpp
+)
+lidar_configure_target(frontend_gui)
+target_link_libraries(frontend_gui PRIVATE imgui)

@@ -186,6 +186,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <Project>{D339D575-8794-3847-AF37-80FEDB50523D}</Project>
       <Name>debug_message_test</Name>
     </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\frontend_gui.vcxproj">
+      <Project>{A2694344-D1BE-30FE-9E7C-8FBCD4604726}</Project>
+      <Name>frontend_gui</Name>
+    </ProjectReference>
     <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\_deps\glfw-build\src\glfw.vcxproj">
       <Project>{2A1BAA8A-A9FE-3723-8577-AE4153586078}</Project>
       <Name>glfw</Name>

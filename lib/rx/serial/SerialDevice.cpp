@@ -7,6 +7,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#elif defined(__linux__)
+#include <sys/ioctl.h>
 #endif
 #include <cstdlib>
 
@@ -27,9 +29,10 @@ std::string native_port_name(std::string port) {
 }  // namespace
 
 SerialDevice::SerialDevice(std::string port, int baudrate, MessageQueue& queue,
-                           IFrameParser* parser)
+                           IFrameParser* parser, bool assert_dtr_rts)
     : port_name_(native_port_name(std::move(port)))
     , baudrate_(baudrate)
+    , assert_dtr_rts_(assert_dtr_rts)
     , queue_(queue)
     , session_(std::make_shared<Session>(ioc_))
     , parser_(parser ? parser : &owned_parser_) {
@@ -74,8 +77,15 @@ bool SerialDevice::open() {
     if (ec) { close(); return false; }
 
 #ifdef _WIN32
-    EscapeCommFunction(session_->port.native_handle(), SETDTR);
-    EscapeCommFunction(session_->port.native_handle(), SETRTS);
+    const auto handle = session_->port.native_handle();
+    EscapeCommFunction(handle, assert_dtr_rts_ ? SETDTR : CLRDTR);
+    EscapeCommFunction(handle, assert_dtr_rts_ ? SETRTS : CLRRTS);
+    if (!assert_dtr_rts_)
+        PurgeComm(handle, PURGE_RXCLEAR | PURGE_TXCLEAR);
+#elif defined(__linux__)
+    int bits = TIOCM_DTR | TIOCM_RTS;
+    ioctl(session_->port.native_handle(),
+          assert_dtr_rts_ ? TIOCMBIS : TIOCMBIC, &bits);
 #endif
 
     return true;

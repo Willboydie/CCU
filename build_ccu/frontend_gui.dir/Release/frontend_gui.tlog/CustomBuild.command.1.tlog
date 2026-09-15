@@ -1,0 +1,10 @@
+^C:\USERS\WILL BOYD\ONEDRIVE\PROJECTS\SMART_MARKER\CCU\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU" "-BC:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu" --check-stamp-file "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

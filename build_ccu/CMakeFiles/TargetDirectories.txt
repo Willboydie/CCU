@@ -12,6 +12,7 @@ C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/proje
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/projector_gui.dir
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/projector_calibration_gui.dir
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/projector_esp_gui.dir
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/frontend_gui.dir
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/ALL_BUILD.dir
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/CMakeFiles/ZERO_CHECK.dir
 C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build_ccu/_deps/glfw-build/CMakeFiles/ALL_BUILD.dir

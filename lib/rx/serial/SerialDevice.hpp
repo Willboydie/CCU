@@ -20,8 +20,11 @@
 
 class SerialDevice {
 public:
+    // assert_dtr_rts: LiDAR/Teensy boards want DTR/RTS asserted. ESP32-C3
+    // dongles must have them cleared or the chip stays in reset.
     SerialDevice(std::string port, int baudrate, MessageQueue& queue,
-                 IFrameParser* parser = nullptr);
+                 IFrameParser* parser = nullptr,
+                 bool assert_dtr_rts = true);
     ~SerialDevice();
 
     SerialDevice(const SerialDevice&) = delete;
@@ -63,6 +66,7 @@ private:
 
     std::string port_name_;
     int baudrate_;
+    bool assert_dtr_rts_ = true;
     MessageQueue& queue_;
     boost::asio::io_context ioc_;
     std::optional<boost::asio::executor_work_guard<
