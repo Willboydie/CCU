@@ -2,6 +2,8 @@
 
 This is the wire contract between the **Android tablet app** and **marker firmware**, forwarded by the USB-C ESP-NOW dongle. It is written for the firmware author. The tablet’s Kotlin types live in `app/.../data/DeviceProtocol.kt`. The field list this spec implements is `docs/data_packets.txt`.
 
+**Command bytes** for the CCU ↔ frontend link are assigned in [`CMD_PROTOCOL.md`](CMD_PROTOCOL.md). That catalog is the shared source of truth: every packet and command has one unique `cmd`, with no replicates. Payload layouts in the sections below still use earlier names (`TELEMETRY`, `BEGIN_SURVEY`, …); map them through §2.
+
 Peak throughput on the USB-C hop is about **10 KB/s**. ESP-NOW payloads are at most **250 bytes**. Keep every frame at or under 250 bytes including the header, unless the dongle fragments and reassembles logical frames transparently.
 
 Protocol version: **1**.
@@ -113,28 +115,45 @@ The tablet computes both from the loaded plan when it sends `REGISTER_NODES`.
 
 ## 2. Command ids
 
-Device → tablet: `0x01`–`0x0F`. Tablet → device: `0x10`–`0x1F`.
+Canonical table: [`CMD_PROTOCOL.md`](CMD_PROTOCOL.md). Device → frontend packets `0x01`–`0x0F`. Frontend → device packets `0x10`–`0x1F`. Frontend → device commands `0x20`–`0x3F`. Never send `0xE5` (dongle pairing).
 
+| cmd    | Shared name (`CMD_PROTOCOL`) | Direction           | When |
+| ------ | ---------------------------- | ------------------- | ---- |
+| `0x01` | `DEVICE_ID`                  | device → frontend   | Heartbeat while disconnected |
+| `0x02` | `PAIRING_ACCEPTED`           | device → frontend   | Join / begin-session accepted |
+| `0x03` | `REGULAR_TELEMETRY`          | device → frontend   | 10 Hz while In Session |
+| `0x04` | `SURVEY_RESULT`              | device → frontend   | Once per surveyed node |
+| `0x10` | `CONNECTED`                  | frontend → device   | 10 Hz keep-alive |
+| `0x20` | `BEGIN_NEW_SESSION`          | frontend → device   | Start a session |
+| `0x21` | `JOIN_SESSION`               | frontend → device   | Join an Active session |
+| `0x22` | `END_SESSION`                | frontend → device   | End the named session |
+| `0x23` | `SET_ORIGIN`                 | frontend → device   | Plan origin |
+| `0x24` | `BEGIN_TAG_FINDING`          | frontend → device   | Enter Tag Finding |
+| `0x25` | `PERFORM_SURVEY`             | frontend → device   | Survey listed nodes |
+| `0x26` | `ABORT_SURVEY`               | frontend → device   | Cancel survey |
+| `0x27` | `PERFORM_PROJECTION`         | frontend → device   | Project listed nodes |
+| `0x28` | `PROJECTOR_PAUSE`            | frontend → device   | Pause projection |
+| `0x29` | `PROJECTOR_PLAY`             | frontend → device   | Resume projection |
+| `0x2A` | `PROJECTION_END`             | frontend → device   | Discard path, laser off |
+| `0x2B` | `SET_LASER_POWER`            | frontend → device   | Brightness / duty |
 
-| cmd    | Name                  | Direction       | When                                          |
-| ------ | --------------------- | --------------- | --------------------------------------------- |
-| `0x01` | `FIRMWARE_VERSION`    | device → tablet | Once, on successful connection                |
-| `0x02` | `TELEMETRY`           | device → tablet | Periodic, while linked                        |
-| `0x03` | `SURVEY_POINT`        | device → tablet | Once per requested vertex during a survey     |
-| `0x04` | `PROJECTION_START`    | device → tablet | Once, when a projection job is accepted       |
-| `0x10` | `SET_LASER_POWER`     | tablet → device | Operator changes brightness                   |
-| `0x11` | `SET_PROJECTION_MODE` | tablet → device | Mode / halt                                   |
-| `0x12` | `BEGIN_TAG_SEARCH`    | tablet → device | Pose screen: begin Tag Finding (or the next tag) |
-| `0x13` | `BEGIN_SURVEY`        | tablet → device | Operator starts a survey of selected nodes    |
-| `0x14` | `BEGIN_PROJECTION`    | tablet → device | Operator starts projecting selected nodes     |
-| `0x15` | `TAG_FOUND`           | tablet → device | Operator confirms the current tag on the pad  |
-| `0x16` | `NUDGE_BEAM_X`        | tablet → device | D-pad azimuth step                            |
-| `0x17` | `NUDGE_BEAM_Y`        | tablet → device | D-pad elevation step                          |
-| `0x18` | `SET_ORIGIN`          | tablet → device | Optional: force origin / pose (not the Pose CTA) |
-| `0x19` | `REGISTER_NODES`      | tablet → device | Connection, or a new plan is opened           |
+Names used later in this document map onto that table as follows:
 
+| Name in this document | Shared `cmd` | Shared name |
+| --- | --- | --- |
+| `TELEMETRY` | `0x03` | `REGULAR_TELEMETRY` |
+| `SURVEY_POINT` | `0x04` | `SURVEY_RESULT` |
+| `BEGIN_TAG_SEARCH` | `0x24` | `BEGIN_TAG_FINDING` |
+| `BEGIN_SURVEY` | `0x25` | `PERFORM_SURVEY` |
+| `BEGIN_PROJECTION` | `0x27` | `PERFORM_PROJECTION` |
+| `SET_ORIGIN` | `0x23` | `SET_ORIGIN` |
+| `SET_LASER_POWER` | `0x2B` | `SET_LASER_POWER` |
+| `SET_PROJECTION_MODE(Off)` | `0x2A` | `PROJECTION_END` (also `ABORT_SURVEY` `0x26` when a survey is running) |
+| `SET_PROJECTION_MODE` play/pause | `0x28` / `0x29` | `PROJECTOR_PAUSE` / `PROJECTOR_PLAY` |
 
-There are no command-ack packets. The tablet infers success or rejection from the next `TELEMETRY` (and from `SURVEY_POINT` / `PROJECTION_START` where those apply).
+`FIRMWARE_VERSION`, `PROJECTION_START`, `TAG_FOUND`, `NUDGE_BEAM_X` / `NUDGE_BEAM_Y`, and `REGISTER_NODES` are **not** in the shared catalog. Do not reuse any assigned `cmd` for them.
+
+There are no command-ack packets. The tablet infers success or rejection from the next `REGULAR_TELEMETRY` (and from `SURVEY_RESULT` where that applies).
 
 ---
 
@@ -259,9 +278,7 @@ healthOK
 
 ## 4. Device → tablet
 
-
-
-### `0x01` `FIRMWARE_VERSION`
+### `FIRMWARE_VERSION` (not in shared catalog)
 
 **Time:** immediately after the session is up (USB enumerated **and** NOW linked, or as soon as the marker can talk to the dongle that is already on USB). Send once per connection. Do not wait for the tablet to ask.
 
@@ -283,7 +300,7 @@ Example: firmware `"1.4.2"` → `length = 6`, bytes `{ 0x01, '1', '.', '4', '.',
 
 
 
-### `0x02` `TELEMETRY`
+### `0x03` `REGULAR_TELEMETRY` (this document: `TELEMETRY`)
 
 **Time:** while linked, **10 Hz** recommended (40-byte payload → well under 10 KB/s). Send the first tick right after `FIRMWARE_VERSION`.
 
@@ -324,7 +341,7 @@ Example: firmware `"1.4.2"` → `length = 6`, bytes `{ 0x01, '1', '.', '4', '.',
 
 
 
-### `0x03` `SURVEY_POINT`
+### `0x04` `SURVEY_RESULT` (this document: `SURVEY_POINT`)
 
 **Time:** once for **each** node id in the `BEGIN_SURVEY` list, after that vertex has been attempted (about 5 s dwell in the test applet). Send a result even on failure (unknown id, out of FOV, cancelled, or `moved`). Do not clear `isSurveying` until every requested id has had a `SURVEY_POINT`.
 
@@ -347,7 +364,7 @@ Example: firmware `"1.4.2"` → `length = 6`, bytes `{ 0x01, '1', '.', '4', '.',
 
 
 
-### `0x04` `PROJECTION_START`
+### `PROJECTION_START` (not in shared catalog)
 
 **Time:** once, immediately after `BEGIN_PROJECTION` is accepted, **before** the first dwell. Lists the nodes the device will actually project onto (a subset if some ids are unknown or out of FOV).
 
@@ -373,7 +390,7 @@ Positions and corner angles should match the registered plan vertices.
 
 
 
-### `0x10` `SET_LASER_POWER`
+### `0x2B` `SET_LASER_POWER`
 
 **Time:** Settings brightness slider (tablet range 10–100). Also sent after connect so firmware matches the UI.
 
@@ -389,7 +406,7 @@ Positions and corner angles should match the registered plan vertices.
 
 
 
-### `0x11` `SET_PROJECTION_MODE`
+### `SET_PROJECTION_MODE` (shared: `0x28` pause / `0x29` play / `0x2A` end)
 
 **Time:** tablet wants a mode without a new node list, or wants to **halt** a job.
 
@@ -413,7 +430,7 @@ Positions and corner angles should match the registered plan vertices.
 
 
 
-### `0x12` `BEGIN_TAG_SEARCH`
+### `0x24` `BEGIN_TAG_FINDING` (this document: `BEGIN_TAG_SEARCH`)
 
 **Time:** Pose screen, when pose is not known and the operator taps **Click to begin Tag Finding**. Also sent again after each `TAG_FOUND` until two distinct tags are locked (the pad stays up for the next tag). Origin is **not** required.
 
@@ -427,7 +444,7 @@ Positions and corner angles should match the registered plan vertices.
 
 
 
-### `0x13` `BEGIN_SURVEY`
+### `0x25` `PERFORM_SURVEY` (this document: `BEGIN_SURVEY`)
 
 **Time:** Plan screen, Survey on the current selection. Tablet only sends this when it believes the site is posed and the selected nodes are in view; firmware still enforces `surveyReady`.
 
@@ -445,7 +462,7 @@ Positions and corner angles should match the registered plan vertices.
 
 
 
-### `0x14` `BEGIN_PROJECTION`
+### `0x27` `PERFORM_PROJECTION` (this document: `BEGIN_PROJECTION`)
 
 **Time:** Plan screen, Project on the current selection (after a survey in the UI, but firmware may still be asked to project any registered id).
 
@@ -459,7 +476,7 @@ Unknown ids: omit them from `PROJECTION_START`. If the resulting list is empty, 
 
 
 
-### `0x15` `TAG_FOUND`
+### `TAG_FOUND` (not in shared catalog)
 
 **Time:** during `TAG_SEARCH`, when the operator taps **TAG n ALIGNED** on the Pose pad. `tagID` is the survey tag index on the Pose screen (`1`, `2`, …), **not** a plan node id.
 
@@ -477,7 +494,7 @@ If this frame arrives outside `TAG_SEARCH`, ignore it. After the first lock the 
 
 
 
-### `0x16` `NUDGE_BEAM_X` / `0x17` `NUDGE_BEAM_Y`
+### `NUDGE_BEAM_X` / `NUDGE_BEAM_Y` (not in shared catalog)
 
 **Time:** Pose D-pad, and while projecting if the operator trims the spot. Fine step is 0.05°, coarse is 0.5°. The payload is the **delta already scaled** (signed degrees).
 
@@ -494,7 +511,7 @@ If this frame arrives outside `TAG_SEARCH`, ignore it. After the first lock the 
 
 
 
-### `0x18` `SET_ORIGIN`
+### `0x23` `SET_ORIGIN`
 
 **Time:** optional. The Pose screen’s primary path is Tag Finding, not this command. The test applet can still inject it. The tablet ViewModel still knows how to send it, but the UI does not.
 
@@ -506,7 +523,7 @@ If this frame arrives outside `TAG_SEARCH`, ignore it. After the first lock the 
 
 
 
-### `0x19` `REGISTER_NODES`
+### `REGISTER_NODES` (not in shared catalog)
 
 **Time:**
 
