@@ -22,6 +22,8 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+# Pi OS exposes Wayland without wayland-scanner. X11 is enough for the GUI tools.
+set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
     GIT_TAG 3.4
@@ -200,3 +202,166 @@ add_executable(frontend_gui
 )
 lidar_configure_target(frontend_gui)
 target_link_libraries(frontend_gui PRIVATE imgui)
+
+function(ccu_configure_target tgt)
+    target_include_directories(${tgt} PRIVATE
+        ${CMAKE_SOURCE_DIR}/ccu
+        ${CMAKE_SOURCE_DIR}/lib
+    )
+    target_compile_features(${tgt} PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(${tgt} PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(${tgt} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    if(WIN32)
+        target_compile_definitions(${tgt} PRIVATE
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+        )
+    endif()
+endfunction()
+
+add_executable(ccu_protocol_test
+    tests/ccu_protocol_test.cpp
+    ccu/protocol.cpp
+)
+ccu_configure_target(ccu_protocol_test)
+
+add_executable(ccu_yaw_test
+    tests/ccu_yaw_test.cpp
+    ccu/yaw.cpp
+)
+ccu_configure_target(ccu_yaw_test)
+
+add_executable(ccu_command_allowed_test
+    tests/ccu_command_allowed_test.cpp
+    ccu/command_allowed.cpp
+)
+ccu_configure_target(ccu_command_allowed_test)
+
+add_executable(ccu_galvo_model_test
+    tests/ccu_galvo_model_test.cpp
+    ccu/galvo_model.cpp
+)
+ccu_configure_target(ccu_galvo_model_test)
+
+add_executable(ccu_lidar_model_test
+    tests/ccu_lidar_model_test.cpp
+    ccu/lidar_model.cpp
+)
+ccu_configure_target(ccu_lidar_model_test)
+target_include_directories(ccu_lidar_model_test PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+
+add_executable(ccu_path_engine_test
+    tests/ccu_path_engine_test.cpp
+    ccu/path_engine.cpp
+)
+ccu_configure_target(ccu_path_engine_test)
+
+add_executable(ccu_bearing_test
+    tests/ccu_bearing_test.cpp
+    ccu/bearing.cpp
+    ccu/yaw.cpp
+)
+ccu_configure_target(ccu_bearing_test)
+
+set(CCU_SESSION_SOURCES
+    ccu/session.cpp
+    ccu/command_allowed.cpp
+    ccu/protocol.cpp
+    ccu/yaw.cpp
+    ccu/bearing.cpp
+    ccu/survey.cpp
+    ccu/lidar.cpp
+    ccu/lidar_model.cpp
+    ccu/project.cpp
+    ccu/path_engine.cpp
+)
+
+add_executable(ccu_session_test
+    tests/ccu_session_test.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_session_test)
+
+add_executable(ccu_telemetry_test
+    tests/ccu_telemetry_test.cpp
+    ccu/telemetry.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_telemetry_test)
+
+add_executable(ccu_survey_test
+    tests/ccu_survey_test.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_survey_test)
+
+add_executable(ccu_project_test
+    tests/ccu_project_test.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_project_test)
+
+# H2.0. Localhost raw bytes. The tablet test is the other program.
+add_executable(ccu_h2_0
+    tests/ccu_h2_0_bytes.cpp
+)
+ccu_configure_target(ccu_h2_0)
+if(WIN32)
+    target_link_libraries(ccu_h2_0 PRIVATE ws2_32)
+endif()
+
+# H2.1. Localhost DEVICE_ID. The tablet parser is the other program.
+add_executable(ccu_h2_1
+    tests/ccu_h2_1_device_id.cpp
+    ccu/protocol.cpp
+)
+ccu_configure_target(ccu_h2_1)
+if(WIN32)
+    target_link_libraries(ccu_h2_1 PRIVATE ws2_32)
+endif()
+
+add_executable(ccu_h2_2
+    tests/ccu_h2_2_dongle_test.cpp
+    ccu/dongle_link.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_h2_2)
+
+add_executable(ccu_h2_4
+    tests/ccu_h2_4_idle.cpp
+    ccu/session_poll.cpp
+    ccu/dongle_link.cpp
+    ${CCU_SESSION_SOURCES}
+)
+ccu_configure_target(ccu_h2_4)
+if(WIN32)
+    target_link_libraries(ccu_h2_4 PRIVATE ws2_32)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(ccu
+        ccu/main.cpp
+        ccu/session_poll.cpp
+        ccu/serial.cpp
+        ccu/dongle.cpp
+        ccu/dongle_link.cpp
+        ccu/angle.cpp
+        ccu/projector.cpp
+        ccu/lidar_port.cpp
+        ccu/telemetry.cpp
+        ${CCU_SESSION_SOURCES}
+    )
+    ccu_configure_target(ccu)
+    target_link_libraries(ccu PRIVATE Threads::Threads)
+
+    add_executable(ccu_h2
+        tests/ccu_h2_bench.cpp
+        ccu/serial.cpp
+        ccu/angle.cpp
+        ${CCU_SESSION_SOURCES}
+    )
+    ccu_configure_target(ccu_h2)
+endif()

@@ -182,6 +182,66 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <Project>{98D1D845-7CB0-3C01-9C3D-B5D270CD95F3}</Project>
       <Name>azimuth_finder_test</Name>
     </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_bearing_test.vcxproj">
+      <Project>{4E77E9D6-B255-37B1-99F6-D6FCA755F502}</Project>
+      <Name>ccu_bearing_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_command_allowed_test.vcxproj">
+      <Project>{4A7E2547-FEAB-3635-B4FD-24A4BFDD146D}</Project>
+      <Name>ccu_command_allowed_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_galvo_model_test.vcxproj">
+      <Project>{B7D8BF58-8AA1-39EA-AC7C-5CD32CDADCAD}</Project>
+      <Name>ccu_galvo_model_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_h2_0.vcxproj">
+      <Project>{1FB59A15-F513-3D40-B247-4138DC9E2B99}</Project>
+      <Name>ccu_h2_0</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_h2_1.vcxproj">
+      <Project>{8CD4AF56-E854-33E7-B247-C392CF1DFE33}</Project>
+      <Name>ccu_h2_1</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_h2_2.vcxproj">
+      <Project>{19F5ED18-EAE3-3A27-99A8-6863D002F361}</Project>
+      <Name>ccu_h2_2</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_h2_4.vcxproj">
+      <Project>{24C94486-B33F-33F5-96B7-B44F0BA8F13A}</Project>
+      <Name>ccu_h2_4</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_lidar_model_test.vcxproj">
+      <Project>{A5902109-23D1-315D-8EA4-F8C3BA28CC23}</Project>
+      <Name>ccu_lidar_model_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_path_engine_test.vcxproj">
+      <Project>{FA7CBB4A-A782-39E3-8886-E9FF681CA90A}</Project>
+      <Name>ccu_path_engine_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_project_test.vcxproj">
+      <Project>{D9E17287-9753-3D43-BDD5-1D083913AAB7}</Project>
+      <Name>ccu_project_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_protocol_test.vcxproj">
+      <Project>{4CA4A737-5932-3A67-8E02-FDEECF0DC6D3}</Project>
+      <Name>ccu_protocol_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_session_test.vcxproj">
+      <Project>{12F7EEC9-2493-318C-A896-B2670F349E7A}</Project>
+      <Name>ccu_session_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_survey_test.vcxproj">
+      <Project>{696687E5-464C-331F-8F19-5A4711889130}</Project>
+      <Name>ccu_survey_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_telemetry_test.vcxproj">
+      <Project>{C7A62A03-2617-37B7-BCC1-9622E7F24FB8}</Project>
+      <Name>ccu_telemetry_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\ccu_yaw_test.vcxproj">
+      <Project>{6D69335D-D962-3BEF-B00C-7CAB46497720}</Project>
+      <Name>ccu_yaw_test</Name>
+    </ProjectReference>
     <ProjectReference Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\debug_message_test.vcxproj">
       <Project>{D339D575-8794-3847-AF37-80FEDB50523D}</Project>
       <Name>debug_message_test</Name>

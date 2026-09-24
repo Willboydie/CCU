@@ -513,6 +513,8 @@ FIND_PACKAGE_MESSAGE_DETAILS_Boost:INTERNAL=[C:/Users/Will Boyd/boost_1_92_0][ ]
 FIND_PACKAGE_MESSAGE_DETAILS_OpenGL:INTERNAL=[opengl32][ ][v()]
 //Details about finding Threads
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
+//Build support for Wayland
+GLFW_BUILD_WAYLAND:INTERNAL=OFF
 //GLFW pkg-config Libs.private
 GLFW_PKG_CONFIG_LIBS_PRIVATE:INTERNAL= -lgdi32
 //GLFW pkg-config Requires.private

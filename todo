@@ -1,3 +1,15 @@
-Update wifi chip code
-use the planner bot to generate a bring up plan based on the docs
-wire IMU and magnetic sensor to the raspi and run an OrientationEngine unit test
+
+- set Pose to (0, 0, 1.276) and make sure this is used by the survey and projection routines
+- put all distances in meters
+- build LidarModel and GalvoModel, defining each mapping as a separate class method
+- define the mapping constants, keeping the models as naive as reasonable
+- Edit angle bounds and range bounds
+- try raising telemetry to 25Hz
+
+NEW POC PLAN
+- The IMU will track tilt (roll and pitch).
+- No need to level at the start.
+- The LiDAR must be aligned to the laser projector, so we are finding tag displacements.
+- Using this system we only need 2 points. Print 6 tags of diameter 20cm.
+- Tilt combines with LPF'ed stage rotation to give facing angle (or maybe IMU yaw - try both).
+- ANY movement turns off the projector. No relocation detection, just a button to be pressed saying "device repositioned".

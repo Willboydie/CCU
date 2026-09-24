@@ -2,7 +2,25 @@
 
 High-level operating model for the CCU during a UI-driven session: how a session starts, how the frontend stays connected, when the device is allowed to run macros, and what regular telemetry reports.
 
-Detailed routine behaviour lives in `MACRO_ROUTINES.md`. Packet layouts live in the protocol docs.
+Detailed routine behaviour lives in `MACRO_ROUTINES.md`. Packet layouts live in `CMD_PROTOCOL.md`.
+
+---
+
+## Promo build
+
+This is the build in progress. The state diagram and the sections after this one describe the later product: tag registration, relocation tag finding, and an IMU `moved` latch. That text stays. This build uses the rules below instead.
+
+| Rule | Promo behavior |
+| --- | --- |
+| Set Origin | One press. The operator places the device at the plan origin (DXF `(0, 0)`), levels it, points it due north, and sends `BEGIN_ORIGIN_SET` with an empty payload. The CCU stores the AS5048 stage angle as `northOffset` and sets `originIsSet` immediately. `originSetStatus` stays `IDLE`. There is no tag walk. A second press while origin is set is dropped. |
+| Pose | Level, at `(east, north, up) = (0, 0, 0)`. `lastKnownPose` is six zeros on every telemetry frame. |
+| `moved` | `false` on every frame. There is no relocation routine. |
+| Yaw | `effectiveYaw = wrap(northOffset − stage)`, clockwise from due north, in `[0, 2π)`. At the moment of Set Origin, yaw is 0. Stage samples are the `stage` float in the orientation frame `0xA0`, 10 Hz, from the sensor board's own USB CDC. Roll, pitch, and IMU yaw in that frame are ignored. |
+| Tag commands | `BEGIN_TAG_FINDING` and `TAG_ALIGNED` are dropped in every mode. |
+| `tagFindingStatus` | `POSE_KNOWN` on every frame. |
+| Clear origin | `END_SESSION` clears origin and `northOffset`. A link drop does not. |
+
+`END_SESSION` also clears survey results and any projection path. Power-off does the same, because none of that is stored on disk.
 
 ---
 
@@ -26,7 +44,7 @@ While In Session:
        │
        │  UI Set Origin → BEGIN_ORIGIN_SET
        ▼
-  Origin Set  (align every on-site tag → Tag.prevAngle)
+  Origin Set  (align every on-site tag → Tag.prevAngle + prevDistance)
        │  originIsSet=true
        ▼
   Running
@@ -110,8 +128,8 @@ Origin Set is a **separate** routine from relocation Tag Finding. The UI pose sc
 | ---- | ------------ |
 | UI | Operator places the device at the origin, taps **Set Origin**, sends `BEGIN_ORIGIN_SET` |
 | CCU | Enters Origin Set (`originSetStatus = WAITING_FOR_TAG`). Laser on, nudges accepted |
-| UI | Operator steers onto each on-site tag in turn, then sends `TAG_ALIGNED` with that `Tag.id` |
-| CCU | Creates or updates the `Tag` for that ID. Measured beam `Angle` is stored as **`prevAngle`**. No `PoseSolver` |
+| UI | Operator steers the projector onto each on-site tag in turn, then sends `TAG_ALIGNED` with that `Tag.id` |
+| CCU | Commands the LiDAR to the same pointing `Angle` as the projector (`GalvoModel` + `LidarModel`; origins stay offset). `LidarModel` maps LiDAR range to distance from the **device centre** using its origin offset. Stores **`prevAngle`** and **`prevDistance`**. No `PoseSolver` |
 | CCU | After the last tag of the pass is aligned: `originIsSet = true`, `lastKnownPose` = origin Pose, `originSetStatus = IDLE`. IMU monitoring may start |
 
 The UI must not send `BEGIN_TAG_FINDING` for this pass. That command is relocation-only, after origin is set.
@@ -128,25 +146,25 @@ These are flow overviews only. See `MACRO_ROUTINES.md` for the routines themselv
 
 Used when the device has been moved, **after** origin is set. Distinct from Origin Set: the UI and CCU must not mix the two. `BEGIN_TAG_FINDING` is ignored while `originIsSet = false`.
 
-The laser runs at a low duty cycle. The program responds to UI **Nudges**, which increment the laser beam angle.
+The projector laser runs at a low duty cycle. The program responds to UI **Nudges**, which increment the projector beam angle. On **Align**, the LiDAR is commanded to the same pointing `Angle` as the galvo (offset origin; tag radius is larger than the offset). `LidarModel` maps the range to distance from the device centre using the rangefinder origin offset it owns.
 
-Tags already exist from Origin Set (`prevAngle` filled). Each alignment writes `newAngle`. On the first alignment since Origin Set, `prevAngle` is left as the Origin Set reference. On later relocations, the previous `newAngle` becomes `prevAngle`.
+Tags already exist from Origin Set (`prevAngle` and `prevDistance` filled). Each alignment writes `newAngle` and `newDistance`. On the first alignment since Origin Set, the Origin Set reference is left in `prevAngle` / `prevDistance`. On later relocations, the previous `newAngle` / `newDistance` become `prevAngle` / `prevDistance`.
 
 
 | Step | What happens                                                                                       |
 | ---- | -------------------------------------------------------------------------------------------------- |
 | UI   | Sends `BEGIN_TAG_FINDING`                                                                          |
 | CCU  | Enters relocation Tag Finding (`tagFindingStatus = WAITING_FOR_TAG`)                               |
-| UI   | Operator steers the beam onto a tag, then sends `TAG_ALIGNED`                                      |
-| CCU  | Writes `newAngle` on that `Tag`; shifts the previous `newAngle` into `prevAngle`                   |
-| CCU  | Solves pose from `lastKnownPose`, `prevAngle`, and `newAngle` of the aligned IDs                   |
+| UI   | Operator steers the projector onto a tag, then sends `TAG_ALIGNED`                                 |
+| CCU  | Commands the LiDAR to the same pointing `Angle`; maps range to device-centre distance via `LidarModel` offset; writes `newAngle` / `newDistance` |
+| CCU  | Solves pose from `lastKnownPose`, `prevAngle` / `prevDistance`, and `newAngle` / `newDistance`     |
 | CCU  | Always asks for **2** tag alignments; may ask for a **third** if the solver cannot narrow the pose |
 
 
 The UI flow is the same for every tag:
 
-1. Navigate the beam onto the tag
-2. Press **Align**
+1. Navigate the projector onto the tag
+2. Press **Align** (LiDAR ranges at that angle)
 3. See **Computing...**
 4. Either another tag request, or the **Pose Known** screen
 
