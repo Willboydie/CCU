@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/cmake_install.cmake",
+		"C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-build/cmake_install.cmake",
+		"C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-build/src/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

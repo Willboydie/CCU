@@ -11,7 +11,15 @@
 
 namespace ccu {
 
-int serial_open(const char* path) {
+int serial_open(const char* path, int baud, bool assert_rts, bool flush_rx) {
+    speed_t speed = B921600;
+    if (baud == 460800) speed = B460800;
+    else if (baud == 115200) speed = B115200;
+    else if (baud != 921600) {
+        errno = EINVAL;
+        return -1;
+    }
+
     const int fd = ::open(path, O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) return -1;
 
@@ -21,8 +29,8 @@ int serial_open(const char* path) {
         return -1;
     }
     cfmakeraw(&tio);
-    cfsetispeed(&tio, B921600);
-    cfsetospeed(&tio, B921600);
+    cfsetispeed(&tio, speed);
+    cfsetospeed(&tio, speed);
     tio.c_cflag |= (CLOCAL | CREAD);
     // HUPCL would drop DTR on close and reboot a CDC chip that is still enumerating.
     tio.c_cflag &= ~(CRTSCTS | HUPCL);
@@ -32,12 +40,35 @@ int serial_open(const char* path) {
         ::close(fd);
         return -1;
     }
+    if (flush_rx) tcflush(fd, TCIFLUSH);
 
-    // DTR means the host is connected. RTS stays clear so the chip is not held in boot.
-    int bits = TIOCM_DTR;
-    ioctl(fd, TIOCMBIS, &bits);
-    bits = TIOCM_RTS;
-    ioctl(fd, TIOCMBIC, &bits);
+    // open() already raised DTR. RTS stays clear unless a caller asks for it.
+    // The ESP32 orientation board resets while RTS is asserted.
+    int bits = TIOCM_RTS;
+    ioctl(fd, assert_rts ? TIOCMBIS : TIOCMBIC, &bits);
+    return fd;
+}
+
+int serial_open_link(const char* path) {
+    const int fd = ::open(path, O_RDWR | O_NOCTTY | O_CLOEXEC);
+    if (fd < 0) return -1;
+
+    termios tio{};
+    if (tcgetattr(fd, &tio) != 0) {
+        ::close(fd);
+        return -1;
+    }
+    cfmakeraw(&tio);
+    cfsetispeed(&tio, B115200);
+    cfsetospeed(&tio, B115200);
+    tio.c_cflag |= (CLOCAL | CREAD);
+    tio.c_cflag &= ~CRTSCTS;
+    tio.c_cc[VMIN] = 0;
+    tio.c_cc[VTIME] = 0;
+    if (tcsetattr(fd, TCSANOW, &tio) != 0) {
+        ::close(fd);
+        return -1;
+    }
     return fd;
 }
 

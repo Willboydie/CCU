@@ -432,7 +432,7 @@ bool ProjectorController::send_stream_frame(std::size_t n_records) {
     for (std::size_t i = 0; i < n_records; ++i) {
         const ProjPathPoint& p = path_points_[cursor_];
         pack_stream_record(payload.data() + 1 + i * kProjStreamRecordSize,
-                           p.x, p.y, true);
+                           p.x, p.y, p.laser);
         ++cursor_;
         if (cursor_ >= path_points_.size())
             cursor_ = 0;

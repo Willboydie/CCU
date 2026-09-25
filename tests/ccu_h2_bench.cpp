@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
-    if (!ccu::angle_open(port.c_str())) return 1;
+    if (!ccu::angle_open(port.c_str(), 115200, false)) return 1;
 
     std::printf("H2 angle bench\n");
     std::printf("Hold the base still.\n");

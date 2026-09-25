@@ -1,3 +1,4 @@
 open3d>=0.18.0
 numpy>=1.24.0
 matplotlib>=3.8.0
+ezdxf>=1.0.0

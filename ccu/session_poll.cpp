@@ -5,6 +5,7 @@
 #include "dongle_link.hpp"
 #include "project.hpp"
 #include "projector.hpp"
+#include "protocol.hpp"
 #include "survey.hpp"
 #include "telemetry.hpp"
 
@@ -53,11 +54,48 @@ void send_telemetry_if_due() {
     }
 }
 
+void flush_survey_results() {
+    const std::vector<SurveyResult> results = session_take_survey_results();
+    std::size_t sent = 0;
+    for (; sent < results.size(); ++sent) {
+        const SurveyResult& result = results[sent];
+        const auto bytes = pack_survey_result(result);
+        if (!bytes || !dongle_link_write(bytes->data(), static_cast<int>(bytes->size()))) break;
+        std::printf("survey_result id=%u error=%u finished=%d\n",
+                    static_cast<unsigned>(result.id),
+                    static_cast<unsigned>(result.error_code),
+                    result.survey_finished ? 1 : 0);
+        std::fflush(stdout);
+        if (result.survey_finished) session_set_work(WorkMode::Idle);
+    }
+    if (sent < results.size()) {
+        session_restore_survey_results(
+            std::vector<SurveyResult>(results.begin() + static_cast<std::ptrdiff_t>(sent), results.end()));
+    }
+}
+
 }  // namespace
 
 void session_poll() {
     dongle_poll();
     angle_poll();
+
+    if (session_running()) {
+        switch (session_work()) {
+        case WorkMode::Surveying:
+            if (const auto result = survey_poll()) session_queue_survey_result(*result);
+            break;
+        case WorkMode::Projecting:
+            project_poll();
+            projector_poll();
+            break;
+        case WorkMode::Idle:
+            break;
+        }
+    }
+
+    flush_survey_results();
+
     if (!session_running()) {
         dongle_send_device_id_if_due();
         last_telemetry_ = {};
@@ -82,18 +120,6 @@ void session_poll() {
         announced_down_ = false;
         send_pairing_if_due();
         send_telemetry_if_due();
-    }
-
-    switch (session_work()) {
-    case WorkMode::Surveying:
-        survey_poll();
-        break;
-    case WorkMode::Projecting:
-        project_poll();
-        projector_poll();
-        break;
-    case WorkMode::Idle:
-        break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
 }

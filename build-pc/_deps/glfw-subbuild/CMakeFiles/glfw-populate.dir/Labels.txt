@@ -1,0 +1,14 @@
+# Target labels
+ glfw-populate
+# Source files and their labels
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/glfw-populate
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/0f4a0cd4f83dadddc5b88c8c2521b63a/glfw-populate.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/7e05ddafd9a97e2ca6d3a2b2e40d8277/glfw-populate-complete.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-build.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-configure.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-download.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-install.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-mkdir.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-patch.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-test.rule
+C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/glfw-subbuild/CMakeFiles/455b336fe4a3b4e19d2267adcd30d9a0/glfw-populate-update.rule

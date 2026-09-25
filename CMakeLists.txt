@@ -191,6 +191,23 @@ add_executable(projector_esp_gui
 lidar_configure_target(projector_esp_gui)
 target_link_libraries(projector_esp_gui PRIVATE imgui)
 
+add_executable(promo_project_gui
+    tests/promo_project_gui.cpp
+    lib/ui/PromoProjectApplet.cpp
+    ccu/path_engine.cpp
+    ccu/galvo_model.cpp
+    ccu/device_config.cpp
+    ccu/bearing.cpp
+    ccu/yaw.cpp
+    ${PROJECTOR_CORE_SOURCES}
+)
+lidar_configure_target(promo_project_gui)
+target_include_directories(promo_project_gui PRIVATE ${CMAKE_SOURCE_DIR}/ccu)
+target_link_libraries(promo_project_gui PRIVATE imgui)
+if(WIN32)
+    target_link_libraries(promo_project_gui PRIVATE comdlg32)
+endif()
+
 add_executable(frontend_gui
     tests/frontend_gui.cpp
     lib/ui/FrontendApplet.cpp
@@ -371,4 +388,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         ${CCU_SESSION_SOURCES}
     )
     ccu_configure_target(ccu_h2)
+
+    add_executable(ccu_lidar_link
+        tests/lidar_link_test.cpp
+        ccu/serial.cpp
+    )
+    ccu_configure_target(ccu_lidar_link)
+
+    add_executable(ccu_byte_swap
+        tests/byte_swap_test.cpp
+        ccu/serial.cpp
+    )
+    ccu_configure_target(ccu_byte_swap)
 endif()

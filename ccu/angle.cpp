@@ -115,8 +115,8 @@ void feed(uint8_t b) {
 
 }  // namespace
 
-bool angle_open(const char* path) {
-    fd_ = serial_open(path);
+bool angle_open(const char* path, int baud, bool flush_rx) {
+    fd_ = serial_open(path, baud, false, flush_rx);
     if (fd_ < 0) {
         std::fprintf(stderr, "angle: %s: %s\n", path, std::strerror(errno));
         return false;

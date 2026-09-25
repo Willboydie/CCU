@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\8934f1d3dab5ee39e1435e8b514c5041\imgui-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\3b48a76e0f68a14ba1bc26bf401c5cfd\imgui-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\03a15503437b3359f19fc99f84b503ae\imgui-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\imgui-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{3B5E96EB-6115-323F-B341-FB5A618E41C4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

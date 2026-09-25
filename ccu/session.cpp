@@ -154,7 +154,7 @@ void session_on_frame(std::span<const uint8_t> frame) {
         }
         break;
     case kCmdAbortSurvey:
-        survey_abort();
+        for (const SurveyResult& result : survey_abort()) session_queue_survey_result(result);
         work_ = WorkMode::Idle;
         break;
     case kCmdPerformProjection:
@@ -183,6 +183,16 @@ std::vector<SurveyResult> session_take_survey_results() {
     out.swap(taken_survey_);
     return out;
 }
+
+void session_queue_survey_result(const SurveyResult& result) { taken_survey_.push_back(result); }
+
+void session_restore_survey_results(std::vector<SurveyResult> pending) {
+    if (pending.empty()) return;
+    pending.insert(pending.end(), taken_survey_.begin(), taken_survey_.end());
+    taken_survey_.swap(pending);
+}
+
+void session_set_work(WorkMode mode) { work_ = mode; }
 
 std::optional<ProjectionReady> session_take_projection_ready() {
     std::optional<ProjectionReady> out;

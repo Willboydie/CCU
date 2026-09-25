@@ -127,6 +127,7 @@ inline std::optional<std::vector<uint8_t>> pack_projector_frame(
 struct ProjPathPoint {
     uint16_t x;
     uint16_t y;
+    bool laser = true;
 };
 
 inline uint16_t clamp_path_dac(int value) {

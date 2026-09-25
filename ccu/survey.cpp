@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <utility>
 #include <vector>
 
@@ -46,6 +47,7 @@ std::size_t index_ = 0;
 bool active_ = false;
 bool motors_on_ = false;
 bool have_status_ = false;
+bool logged_wait_ = false;
 Phase phase_ = Phase::Idle;
 float frozen_yaw_ = 0.f;
 StatusPayload status_{};
@@ -102,6 +104,7 @@ void reset_job() {
     active_ = false;
     motors_on_ = false;
     have_status_ = false;
+    logged_wait_ = false;
     phase_ = Phase::Idle;
     frozen_yaw_ = 0.f;
     status_ = {};
@@ -276,18 +279,45 @@ std::optional<SurveyResult> on_begin() {
         return std::nullopt;
     }
     const PlanNode& node = nodes_[index_];
-    if (!in_fov(node.east_m, node.north_m, frozen_yaw_)) return fail_node(SurveyError::OutOfFov);
+    if (!in_fov(node.east_m, node.north_m, frozen_yaw_)) {
+        const float dist = std::hypot(node.east_m, node.north_m);
+        const float azimuth = device_azimuth(node.east_m, node.north_m, frozen_yaw_);
+        std::printf(
+            "survey out_of_fov id=%u east=%.3f north=%.3f dist=%.2f yaw=%.3f az=%.3f "
+            "angle_max=%.2f d_max=%.2f\n",
+            static_cast<unsigned>(node.id), static_cast<double>(node.east_m),
+            static_cast<double>(node.north_m), static_cast<double>(dist),
+            static_cast<double>(frozen_yaw_), static_cast<double>(azimuth),
+            static_cast<double>(angle_max_rad()), static_cast<double>(d_max_m()));
+        std::fflush(stdout);
+        return fail_node(SurveyError::OutOfFov);
+    }
     const float azimuth = device_azimuth(node.east_m, node.north_m, frozen_yaw_);
     low_ = lidar_device_to_motor(azimuth, -angle_max_rad());
     high_ = lidar_device_to_motor(azimuth, angle_max_rad());
     if (!motor_ok(low_.x, low_.y) || !motor_ok(high_.x, high_.y)) return fail_node(SurveyError::NotVisible);
-    if (!have_status_) return std::nullopt;
+    if (!have_status_) {
+        if (!logged_wait_) {
+            std::printf("survey waiting for lidar status\n");
+            std::fflush(stdout);
+            logged_wait_ = true;
+        }
+        return std::nullopt;
+    }
+    std::printf("survey status enabled=%u scan=%u\n",
+                static_cast<unsigned>(status_.enabled),
+                static_cast<unsigned>(status_.scan_mode));
+    std::fflush(stdout);
     if (!status_.enabled) {
+        std::printf("survey cmd 0x01 enable\n");
+        std::fflush(stdout);
         lidar_cmd(kCmdDisableEnable);
         motors_on_ = true;
         phase_ = Phase::AwaitEnable;
         return std::nullopt;
     }
+    std::printf("survey cmd 0x2b scan on\n");
+    std::fflush(stdout);
     lidar_cmd(kCmdScanEngineOn);
     phase_ = Phase::AwaitScan;
     return std::nullopt;
@@ -334,6 +364,14 @@ void survey_begin(const std::vector<PlanNode>& nodes) {
     frozen_yaw_ = session_effective_yaw();
     active_ = !nodes_.empty();
     phase_ = active_ ? Phase::Begin : Phase::Idle;
+    if (!nodes_.empty()) {
+        const PlanNode& node = nodes_.front();
+        std::printf("survey begin count=%zu id=%u east=%.3f north=%.3f yaw=%.3f\n",
+                    nodes_.size(), static_cast<unsigned>(node.id),
+                    static_cast<double>(node.east_m), static_cast<double>(node.north_m),
+                    static_cast<double>(frozen_yaw_));
+        std::fflush(stdout);
+    }
 }
 
 std::optional<SurveyResult> survey_poll() {
@@ -352,12 +390,17 @@ std::optional<SurveyResult> survey_poll() {
         return on_begin();
     case Phase::AwaitEnable:
         if (have_status_ && status_.enabled) {
+            std::printf("survey cmd 0x2b scan on\n");
+            std::fflush(stdout);
             lidar_cmd(kCmdScanEngineOn);
             phase_ = Phase::AwaitScan;
         }
         return std::nullopt;
     case Phase::AwaitScan:
         if (have_status_ && status_.scan_mode == kScanModePoint2Point) {
+            std::printf("survey cmd 0x2d low %.3f %.3f\n",
+                        static_cast<double>(low_.x), static_cast<double>(low_.y));
+            std::fflush(stdout);
             lidar_cmd_f32_pair(kCmdSetPoint2PointTarget, low_.x, low_.y);
             move_start_ = std::chrono::steady_clock::now();
             phase_ = Phase::AwaitLow;

@@ -29,6 +29,9 @@ float session_effective_yaw();
 WorkMode session_work();
 AcceptMode session_mode();
 std::vector<SurveyResult> session_take_survey_results();
+void session_queue_survey_result(const SurveyResult& result);
+void session_restore_survey_results(std::vector<SurveyResult> pending);
+void session_set_work(WorkMode mode);
 std::optional<ProjectionReady> session_take_projection_ready();
 
 }  // namespace ccu

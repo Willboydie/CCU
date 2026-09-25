@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\imgui-subbuild\CMakeFiles\03a15503437b3359f19fc99f84b503ae\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{3B5E96EB-6115-323F-B341-FB5A618E41C4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

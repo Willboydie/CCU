@@ -1,5 +1,6 @@
 #include "lidar.hpp"
 
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -21,23 +22,22 @@ void drop_front(std::size_t n) {
 void feed(const uint8_t* data, int n) {
     if (n <= 0) return;
     rx_.insert(rx_.end(), data, data + n);
-    while (!rx_.empty()) {
+    while (rx_.size() >= 3) {
         const uint8_t header = rx_[0];
-        if (header == kControlHeader) {
+        const uint16_t len = static_cast<uint16_t>(rx_[1] | (static_cast<uint16_t>(rx_[2]) << 8));
+        if (header == kControlHeader && len == kControlPayloadSize) {
             if (rx_.size() < kControlPacketSize) return;
             ControlPayload body{};
             std::memcpy(&body, rx_.data() + 3, sizeof(body));
             controls_.push_back(body);
             drop_front(kControlPacketSize);
-        } else if (header == kStatusHeader) {
+        } else if (header == kStatusHeader && len == kStatusPayloadSize) {
             if (rx_.size() < kStatusPacketSize) return;
             StatusPayload body{};
             std::memcpy(&body, rx_.data() + 3, sizeof(body));
             statuses_.push_back(body);
             drop_front(kStatusPacketSize);
-        } else if (header == kDebugHeader) {
-            if (rx_.size() < 3) return;
-            const uint16_t len = static_cast<uint16_t>(rx_[1] | (static_cast<uint16_t>(rx_[2]) << 8));
+        } else if (header == kDebugHeader && len <= kDebugMaxLen) {
             if (rx_.size() < static_cast<std::size_t>(3 + len)) return;
             drop_front(static_cast<std::size_t>(3 + len));
         } else {
@@ -52,8 +52,14 @@ void send(uint8_t cmd, const uint8_t* payload, uint16_t len) {
     frame[1] = static_cast<uint8_t>(len & 0xFF);
     frame[2] = static_cast<uint8_t>((len >> 8) & 0xFF);
     if (len && payload) std::memcpy(frame.data() + 3, payload, len);
-    if (write_) write_(frame.data(), static_cast<int>(frame.size()));
-    else commands_.push_back(std::move(frame));
+    if (write_) {
+        if (write_(frame.data(), static_cast<int>(frame.size())) < 0) {
+            std::fprintf(stderr, "lidar write cmd 0x%02x failed\n", cmd);
+            std::fflush(stderr);
+        }
+    } else {
+        commands_.push_back(std::move(frame));
+    }
 }
 
 }  // namespace

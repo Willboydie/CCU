@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\CMakeFiles\624d91c2ab5cac853aaf54198f55b1a2\update_mappings.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\glfw-src\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\glfw-src\src\mappings.h.in">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\glfw-src\CMake\GenerateMappings.cmake" />
+    <None Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build-pc\_deps\glfw-build\src\CMakeFiles\update_mappings" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F156CA24-E2FE-3D77-9F94-17DA825FA668}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{2158F5CE-D8CE-3DC8-8715-E4EEFB63C768}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/imgui-populate"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/03a15503437b3359f19fc99f84b503ae/imgui-populate.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/3b48a76e0f68a14ba1bc26bf401c5cfd/imgui-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/Will Boyd/OneDrive/projects/smart_marker/CCU/build-pc/_deps/imgui-subbuild/CMakeFiles/8934f1d3dab5ee39e1435e8b514c5041/imgui-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"imgui-populate"
+		],
+		"name" : "imgui-populate"
+	}
+}

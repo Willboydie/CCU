@@ -135,18 +135,19 @@ New program under `ccu/`. Existing lidar and projector GUI targets stay as they 
 | `ccu/galvo_model.cpp`     | Device-frame point → mirror angles → DAC. Origin shift, then mount rotations.                    |
 | `ccu/lidar_model.cpp`     | Motor ↔ device angle. Spherical sample → device east-north-up. No position offset.               |
 | `ccu/path_engine.cpp`     | Corner arms, Galvo DAC pairs, blanked Hermite joins, loop closed.                                |
-| `ccu/serial.cpp`          | POSIX open, non-blocking read, write. This is the implementation the Pi runs.                     |
+| `ccu/serial.cpp`          | POSIX open, non-blocking read, write. Lidar: 115200, RTS clear, receive buffer left in place.    |
 | `ccu/angle.cpp`           | Parse `0xA0`, ignore roll, pitch, and IMU yaw, publish stage                                      |
 | `ccu/dongle.cpp`          | TCP listen for the tablet. UDP beacon `SMFIND` / `SMHERE` on port 8766. Paired when a tablet connects. |
 | `ccu/lidar.cpp`           | Non-blocking lidar parser and commands. Tests inject status and control frames.                  |
+| `ccu/lidar_port.cpp`      | Opens the lidar tty and binds it for `lidar_poll`.                                                |
 | `ccu/projector.cpp`       | Path stream: reset, duty, play, `POINT_STREAM`, pause/resume, stop.                              |
-| `ccu_ports.cfg`           | `angle=/dev/ttyACM0`, `dongle=tcp:8765`, `projector=/dev/ttyACM1`, `lidar=/dev/ttyACM3`           |
+| `ccu_ports.cfg`           | `angle=/dev/ttyACM1`, `dongle=tcp:8765`, `projector=/dev/ttyACM0`, `lidar=/dev/ttyACM2`           |
 | `ccu_survey.cfg`          | Read-only. Promo wedge, galvo, and lidar keys, plus dwell and coarse-scan parameters.            |
 
 
 Each `.cpp` stays a single job. Frame structs live in `ccu/protocol.hpp`. Model constants live next to the function that uses them.
 
-Port functions keep their handle in the `.cpp` file. They call `serial_open`, `serial_read`, and `serial_write`. Unit tests do not open a serial port.
+Port functions keep their handle in the `.cpp` file. They call `serial_open`, `serial_read`, and `serial_write`. G1–G17 do not open a serial port. `ccu_byte_swap` opens a tty when the path is on the command line.
 
 `main` reads `ccu_ports.cfg` from the working directory, or the path in `argv[1]`. It reads `ccu_survey.cfg` from the working directory and does not write it. A missing file keeps every default below, and the log says so. A missing or bad key keeps that key's default and leaves the other keys as loaded. The log prints `DEVICE_HEIGHT`, `D_MAX`, and `ANGLE_MAX` after the load. No USB probing. The orientation board and the tablet dongle share VID `303A` / PID `1001`, so the port file names the ports. On the Pi the working directory is `~/smart_marker/CCU`. `deploy-pi.ps1` copies `ccu_survey.cfg` with the tree.
 
@@ -279,7 +280,7 @@ Edit OrientationEngine only as follows. Leave the BNO085 code alone. With the ch
 | Stage low-pass                                              | `alpha = 0.25` in `src/as5048_pwm.cpp` | first-order, `tau = 1.0` s, on the sin/cos accumulator |
 
 
-Flash the `esp32-c3-serial` environment so `0xA0` comes out of the sensor board's own USB CDC. On the Pi that port is `/dev/ttyACM0`.
+Flash the `esp32-c3-serial` environment so `0xA0` comes out of the sensor board's own USB CDC. On the Pi that port is `/dev/ttyACM1`.
 
 Frame, unchanged, 16-byte payload: `roll`, `pitch`, `yaw` (IMU), `stage` (AS5048), little-endian floats. Command byte `0xA0`.
 
@@ -517,13 +518,33 @@ After a reboot, the same `connection show --active` lists the phone profile on `
 
 | Device             | Config name | Port           | USB identity                                              |
 | ------------------ | ----------- | -------------- | --------------------------------------------------------- |
-| Orientation sensor | `angle`     | `/dev/ttyACM0` | Espressif `88:56:A6:2C:40:08`                             |
+| Orientation sensor | `angle`     | `/dev/ttyACM1` | Espressif `88:56:A6:2C:40:08`                             |
 | Tablet link        | `dongle`    | `tcp:8765`     | phone hotspot `willys_little_chicken`, UDP beacon `8766` |
-| Projector          | `projector` | `/dev/ttyACM1` | Teensy `18997040`                                         |
-| Lidar              | `lidar`     | `/dev/ttyACM3` | Teensy `18996070`                                         |
+| Projector          | `projector` | `/dev/ttyACM0` | Teensy `18997040`                                         |
+| Lidar              | `lidar`     | `/dev/ttyACM2` | Teensy `18996070`                                         |
 
 
 `ccu_ports.cfg` is those four `name=path` lines. `scripts/pi-serial-ports.ps1` lists the same USB identities if a replug moves a tty number; update the config to match before the next gate.
+
+### Lidar byte path
+
+`lidar_open` calls `serial_open(path, 115200, false, false)`. The baud is 115200. RTS stays clear. The host leaves the receive buffer in place. Angle and projector still open at 921600, flush the receive buffer, and leave RTS clear.
+
+The Teensy 4.1 image in `lidar_motor` starts USB serial at 115200. `Interface::commandListener` passes every received byte to the length-prefixed command parser. A finished line of printable text is also answered `SWAP`, a space, and that line reversed. `hello` comes back as `SWAP olleh`. An empty line comes back as `SWAP`.
+
+`lidar_motor/host_test/line_swap_test` checks those replies with no port. It passed on this PC and on the Pi. `ccu_byte_swap` with no path prints `byte-swap PASS logic`. With a tty path it writes `hello`, `pi-teensy`, and `abc123`, and waits for the reversed replies.
+
+The hex is `pio run -e teensy41` in `lidar_motor`. The Pi programs it with `teensy_loader_cli` (`--mcu=TEENSY41 -w -s`). The loader used on this bench was built on the Pi from `teensy_loader_cli.c` against the installed `libusb-dev`. Soft reboot programmed Teensy `18997040`. Teensy `18996070` stayed enumerated and was left with its previous image. `18997040` is the projector row above, and that board is now running this lidar image.
+
+On that plug the by-id links were:
+
+| USB identity | Port |
+| --- | --- |
+| Espressif `88:56:A6:2C:40:08` | `/dev/ttyACM2` |
+| Teensy `18996070` | `/dev/ttyACM0` |
+| Teensy `18997040` | `/dev/ttyACM1` |
+
+`ccu_byte_swap /dev/serial/by-id/usb-Teensyduino_USB_Serial_18997040-if00` printed `byte-swap PASS swapped 3 lines`. `ccu_ports.cfg` still has `angle=/dev/ttyACM1`, `projector=/dev/ttyACM0`, and `lidar=/dev/ttyACM2`. Edit it to the links above before H1.
 
 Before H1, the SSH session installs the Pi build packages once:
 
@@ -671,7 +692,7 @@ py -3 scripts/h2-5.py
 2. Done. `yaw`, `command_allowed`, the three models, bearing helper. G3, G5–G9.
 3. Done. `session` command dispatch and telemetry builder, with `session_reset`. G10, G11, G14.
 4. Done. `survey` and `project`, including the function-pointer range read. G12, G13.
-5. POSIX `serial.cpp` and the four port files. `session_poll` calls them. `ccu_ports.cfg` is already the Pi port list. Firmware interval and stage tau. Flash `esp32-c3-serial`. The board enumerates on the Pi as `/dev/ttyACM0`.
+5. POSIX `serial.cpp` and the four port files. `session_poll` calls them. The lidar open is 115200, RTS clear, receive buffer left in place. `ccu_byte_swap` passed on Teensy `18997040` after the Pi programmed that image. `18996070` was not programmed. `ccu_ports.cfg` tty numbers are still the previous list; edit them before H1. Firmware interval and stage tau. Flash `esp32-c3-serial`. On the last plug that board was `/dev/ttyACM2`.
 6. Done. Tablet UI: session dialog, pose screen, wedge, survey and project payloads. G15–G17.
 7. The tablet and the Pi join the phone hotspot `willys_little_chicken`. The access-point profile `Hotspot` is deleted. H2.0 through H2.4 passed on this PC. H2.5 and H2.6 are not run.
 8. Hardware gates H2–H7: session, origin, and yaw. `.\scripts\deploy-pi.ps1 -Gate Hn`, then run the printed commands in an SSH session. H1 waits for the config log in step 9.
