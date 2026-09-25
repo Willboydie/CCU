@@ -13,7 +13,7 @@ This is the build in progress. The state diagram and the sections after this one
 | Rule | Promo behavior |
 | --- | --- |
 | Set Origin | One press. The operator places the device at the plan origin (DXF `(0, 0)`), levels it, points it due north, and sends `BEGIN_ORIGIN_SET` with an empty payload. The CCU stores the AS5048 stage angle as `northOffset` and sets `originIsSet` immediately. `originSetStatus` stays `IDLE`. There is no tag walk. A second press while origin is set is dropped. |
-| Pose | Level, at `(east, north, up) = (0, 0, 0)`. `lastKnownPose` is six zeros on every telemetry frame. |
+| Pose | Level, at `(east, north, up) = (0, 0, DEVICE_HEIGHT)` metres. `DEVICE_HEIGHT` is read from `ccu_survey.cfg` (default `1.276`). `lastKnownPose` is `(0, 0, DEVICE_HEIGHT, 0, 0, 0)` on every telemetry frame. |
 | `moved` | `false` on every frame. There is no relocation routine. |
 | Yaw | `effectiveYaw = wrap(northOffset − stage)`, clockwise from due north, in `[0, 2π)`. At the moment of Set Origin, yaw is 0. Stage samples are the `stage` float in the orientation frame `0xA0`, 10 Hz, from the sensor board's own USB CDC. Roll, pitch, and IMU yaw in that frame are ignored. |
 | Tag commands | `BEGIN_TAG_FINDING` and `TAG_ALIGNED` are dropped in every mode. |

@@ -1,4 +1,5 @@
 #include "bearing.hpp"
+#include "device_config.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -22,28 +23,27 @@ void check_near(float got, float want, const char* what) {
 }
 
 void test_bearings() {
-    check_near(ccu::bearing_from_north(0.f, 1000.f), 0.f, "+north bearing is 0");
-    check_near(ccu::bearing_from_north(1000.f, 0.f), std::numbers::pi_v<float> / 2.f, "+east bearing is pi/2");
+    check_near(ccu::bearing_from_north(0.f, 1.f), 0.f, "+north bearing is 0");
+    check_near(ccu::bearing_from_north(1.f, 0.f), std::numbers::pi_v<float> / 2.f, "+east bearing is pi/2");
 }
 
 void test_fov() {
+    ccu::device_config_reset();
     constexpr float kPi = std::numbers::pi_v<float>;
     constexpr float kHalfPi = kPi / 2.f;
-    check_near(ccu::kFovHalfRad, 35.f * kPi / 180.f, "half wedge is 35 degrees");
-    check(ccu::in_fov(0.f, 1000.f, 0.f), "+north is in the wedge at yaw 0");
-    check(!ccu::in_fov(1000.f, 0.f, 0.f), "+east is outside ±35° at yaw 0");
+    check_near(ccu::angle_max_rad(), 0.40f, "half wedge is 0.40 rad");
+    check(ccu::d_max_m() == 20.f, "range limit is 20 m");
+    check(ccu::in_fov(0.f, 1.f, 0.f), "+north is in the wedge at yaw 0");
+    check(!ccu::in_fov(1.f, 0.f, 0.f), "+east is outside ±0.40 rad at yaw 0");
 
-    const float outside = 40.f * kPi / 180.f;
-    check(!ccu::in_fov(std::sin(outside) * 1000.f, std::cos(outside) * 1000.f, 0.f),
-          "40 degrees is outside ±35");
-    const float inside = 20.f * kPi / 180.f;
-    check(ccu::in_fov(std::sin(inside) * 1000.f, std::cos(inside) * 1000.f, 0.f),
-          "20 degrees is inside ±35");
-    check(ccu::in_fov(1000.f, 0.f, kHalfPi), "+east is in the wedge at yaw pi/2");
-    check(!ccu::in_fov(0.f, 1000.f, kHalfPi), "+north is outside ±35° at yaw pi/2");
-    check(ccu::kFovRangeMm == 13000.f, "range limit is 13 m");
-    check(!ccu::in_fov(0.f, 13050.f, 0.f), "beyond 13 m is out of FOV");
-    check(ccu::in_fov(0.f, 13000.f, 0.f), "13 m on +north is in the wedge");
+    const float outside = 0.42f;
+    check(!ccu::in_fov(std::sin(outside), std::cos(outside), 0.f), "just outside ±0.40 rad is out of FOV");
+    const float inside = 0.38f;
+    check(ccu::in_fov(std::sin(inside), std::cos(inside), 0.f), "inside ±0.40 rad is in the wedge");
+    check(ccu::in_fov(0.f, 20.f, 0.f), "20 m on +north is in the wedge");
+    check(!ccu::in_fov(0.f, 20.05f, 0.f), "just past 20 m is out of FOV");
+    check(ccu::in_fov(1.f, 0.f, kHalfPi), "+east is in the wedge at yaw pi/2");
+    check(!ccu::in_fov(0.f, 1.f, kHalfPi), "+north is outside ±0.40 rad at yaw pi/2");
 }
 
 }  // namespace

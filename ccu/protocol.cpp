@@ -146,9 +146,9 @@ std::optional<View> view_frame(std::span<const uint8_t> bytes) {
 }
 
 void write_pose(Writer& w, const ccu::Pose& pose) {
-    w.f32(pose.east_mm);
-    w.f32(pose.north_mm);
-    w.f32(pose.up_mm);
+    w.f32(pose.east_m);
+    w.f32(pose.north_m);
+    w.f32(pose.up_m);
     w.f32(pose.roll_rad);
     w.f32(pose.pitch_rad);
     w.f32(pose.yaw_rad);
@@ -156,9 +156,9 @@ void write_pose(Writer& w, const ccu::Pose& pose) {
 
 ccu::Pose read_pose(Reader& r) {
     ccu::Pose pose;
-    pose.east_mm = r.f32();
-    pose.north_mm = r.f32();
-    pose.up_mm = r.f32();
+    pose.east_m = r.f32();
+    pose.north_m = r.f32();
+    pose.up_m = r.f32();
     pose.roll_rad = r.f32();
     pose.pitch_rad = r.f32();
     pose.yaw_rad = r.f32();
@@ -167,8 +167,8 @@ ccu::Pose read_pose(Reader& r) {
 
 void write_node(Writer& w, const ccu::PlanNode& node) {
     w.u16(node.id);
-    w.f32(node.east_mm);
-    w.f32(node.north_mm);
+    w.f32(node.east_m);
+    w.f32(node.north_m);
     w.f32(node.corner_inner_angle_rad);
     w.f32(node.corner_orientation_rad);
 }
@@ -176,8 +176,8 @@ void write_node(Writer& w, const ccu::PlanNode& node) {
 ccu::PlanNode read_node(Reader& r) {
     ccu::PlanNode node;
     node.id = r.u16();
-    node.east_mm = r.f32();
-    node.north_mm = r.f32();
+    node.east_m = r.f32();
+    node.north_m = r.f32();
     node.corner_inner_angle_rad = r.f32();
     node.corner_orientation_rad = r.f32();
     return node;
@@ -356,9 +356,9 @@ std::optional<RegularTelemetry> unpack_regular_telemetry(std::span<const uint8_t
 std::optional<std::vector<uint8_t>> pack_survey_result(const SurveyResult& msg) {
     Writer w;
     w.u16(msg.id);
-    w.f32(msg.east_mm);
-    w.f32(msg.north_mm);
-    w.f32(msg.up_mm);
+    w.f32(msg.east_m);
+    w.f32(msg.north_m);
+    w.f32(msg.up_m);
     w.f32(msg.corner_inner_angle_rad);
     w.f32(msg.corner_orientation_rad);
     w.boolean(msg.surveyed);
@@ -377,9 +377,9 @@ std::optional<SurveyResult> unpack_survey_result(std::span<const uint8_t> frame)
     Reader r(view->payload);
     SurveyResult msg;
     msg.id = r.u16();
-    msg.east_mm = r.f32();
-    msg.north_mm = r.f32();
-    msg.up_mm = r.f32();
+    msg.east_m = r.f32();
+    msg.north_m = r.f32();
+    msg.up_m = r.f32();
     msg.corner_inner_angle_rad = r.f32();
     msg.corner_orientation_rad = r.f32();
     msg.surveyed = r.boolean();

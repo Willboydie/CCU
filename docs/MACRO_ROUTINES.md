@@ -17,35 +17,51 @@ The two routines in the table above, and the Origin Set / Tag Finding sections b
 
 ## Promo build
 
-The promo device is level and stands at the plan origin. It does not align tags, and it does not run relocation Tag Finding. `BEGIN_ORIGIN_SET` stores the current AS5048 stage angle as `northOffset` and sets `originIsSet`. The projector stays off for that command. No `Tag` record is written. Pose and yaw rules are in the promo section of `POC_WORKFLOW.md`.
+The promo device is level and stands on the plan origin, with its centre at `DEVICE_HEIGHT` from the read-only config. It does not align tags, and it does not run relocation Tag Finding. `BEGIN_ORIGIN_SET` stores the current AS5048 stage angle as `northOffset` and sets `originIsSet`. The projector stays off for that command. No `Tag` record is written. Pose and yaw rules are in the promo section of `POC_WORKFLOW.md`.
 
 Survey and projection call the naive models in this section. The azimuth-sweep survey, the lissajous dwell, the plane fit, and the smooth `PathEngine` later in this document are the later product. The constants here are placeholders. Replace the constant or the function body later. Callers stay the same.
 
 ### GalvoModel (promo)
 
-Device centre and beam origin are the same point. Mirror offset is zero.
+GalvoModel contains functions for the following mappings:
 
-| Constant | Value |
-| --- | --- |
-| DAC boresight | `32768` |
-| `kGalvoRadPerDac` | `1.0e-4` rad per count (about 0.1 mrad) |
+#### Device-relative coordinate --> Galvo Mirror Angle Pair
+Device centre and beam origin are assumed to be the same point: (0, 0, DEVICE_HEIGHT)
+The GalvoModel assumes device faces along the vector East=Up=0 (due north with zero tilt). Device orientation relative the plan (for the promo just yaw) must therefore be corrected for before using this mapping.
+This origin point is subtracted from the coordinate we seek, placing the beam origin at (0, 0, 0).
+The optical mechnical offset of the galvanometer is corrected by rotating the coordinate GALVO_MECH_OFFSET_X radians counterclockwise around the vector East=North=0 and GALVO_MECH_OFFSET_X radians counterclockwise around the vector East=Up=0.
+The resulting mirror angles are found by plugging this transformed point into the following formulae
+----------------------------
+def arccotangent(n):
+    return np.where(n == 0, np.pi / 2, np.arctan2(1, n))
 
+def ymirror_formula(north, up, h):
+    return (arccotangent((h - up)/north) - np.pi/2) / 1
+
+def xmirror_formula(nprth, east, h, b):
+    return (arccotangent((east * np.sin(pi_2 + b)) / (north + h * np.sin(np.pi/2 + b))) - np.pi/2) / (-1)
+----------------------------
+(expressed pythonically) where b is the ymirror angle and h = 0.015.
+
+#### Galvo Mirror Angle Pair --> Galvo DAC Command Pair
 ```
-azimuth   = (dac_x - 32768) * kGalvoRadPerDac
-elevation = (dac_y - 32768) * kGalvoRadPerDac
+dac_x = 32768 + int16( xmirror_angle / GALVO_RAD_PER_DAC )
+dac_y = 32768 + int16( ymirror_angle / GALVO_RAD_PER_DAC )
 ```
+where GALVO_RAD_PER_DAC is a constant defined in the config file.
 
-The inverse clamps each DAC into `0 … 65535`. A device-centre XYZ point uses `atan2` for azimuth and elevation.
 
 ### LidarModel (promo)
 
-| Constant | Value |
-| --- | --- |
-| Motor neutral | `kMechNeutralX`, `kMechNeutralY` in `lib/scan/Geometry.hpp` |
-| Rangefinder origin | `(0, 0, 0)` relative to the device centre |
-| `kFloorUpMm` | `-150` (stand-in floor height under a level device when a range is missing) |
+#### (motor_anglex, motor_angley) --> (device_azimuth, device_elevation)
+The motor angle sensors have a known offset. Thus, (device_azimuth, device_elevation) = (motor_anglex, motor_angley) - (LIDAR_ANGLE_OFFSETX, LIDAR_ANGLE_OFFSETY)
 
-Motor angle to pointing uses that neutral as the boresight stand-in. Reported range is the distance. Up of a return is `range_mm * sin(elevation)`, elevation positive above the horizontal.
+#### (device_azimuth, device_elevation, distance) --> Device-relative coordinate
+The LiDAR is assumed to be a point source thus the captured point is (east, north, up) where
+north = distance * cos(corrected_x) * cos(corrected_y) + LIDAR_NORTH_OFFSET
+east = distance * sin(corrected_x) * cos(corrected_y) + LIDAR_EAST_OFFSET
+up = distance * sin(corrected_y) + LIDAR_UP_OFFSET
+
 
 ### Survey (promo)
 
@@ -53,7 +69,7 @@ The aim of a survey is to find a best estimate for the Up value associated with 
 
 Upon entering the routine, the effectiveYaw in that moment is taken as the assumed yaw for the whole routine. The device cannot therefore be moved mid-survey.
 
-One node is surveyed at a time. Each node is an East-North coordinate. The device is at the origin, so the clockwise bearing of a node is:
+One node is surveyed at a time. Each node is an East-North coordinate. The device east and north are the plan origin, and its up is `DEVICE_HEIGHT`, so the clockwise bearing of a node is:
 
 ```
 bearing = wrap(atan2(East, North))
@@ -68,7 +84,7 @@ The motor commands associated with the top and bottom of the elevation are given
 
 The CCU then enables the LiDAR (which begins 1KHz LiDAR telemetry - see @LiDAR_HOST_PROTOCOL) and the ScanEngine and commands the P2P target first to the bottom of the azimuth and then to the top. During azimuth traversal (elevation, distance) pairs are read from telemetry and the Up value they imply is computed in real time. The closest reading (also within a cartesian tolerance `SURVEY_TOL`) is recognised and the LiDAR is commanded to return to it. If there isn't a closest point within tolerance, then `SURVEY_RESULT` failed with `NOT_VISIBLE` and we move on to the next Node.
 
-When the LiDAR returns to the closest point, a coarse scan is commanded. The dwell lasts for DWELL_TIME seconds and all raw points are saved. When the scan is commanded to stop, the raw points are inputed into LidarModel's mapping to recover the device angles and then the assumed stage yaw is used to convert these points back to East-North-Up coordinates. 
+When the LiDAR returns to the closest point, a coarse scan is commanded. The dwell lasts for DWELL_TIME seconds and all raw points are saved. When the scan is commanded to stop, the raw points are inputed into LidarModel's mapping to recover the device angles and then the assumed stage yaw is used to convert these points back to East-North-Up coordinates. Plan up, in metres, is `DEVICE_HEIGHT + range * sin(elevation)`. East and north are measured from the plan origin. 
 
 The resulting point cloud is processed by a naive least squares plane fit centred on the coordinate of the closest point from the azimuth traversal. The intersection point between this plane and the vertical line (East, North) to give the resulting Up value.
 
@@ -76,7 +92,7 @@ All surveyed nodes (successful or not) are reported after each individual node s
 
 ### Projection (promo)
 
-A node with no stored survey result is omitted with `NOT_SURVEYED`. A node now outside the wedge is omitted with `OUT_OF_FOV`. `PathEngine` runs on the rest. The CCU sends `PROJECTION_READY`, then waits for a PLAY command to begin streaming the list of DAC cmd pairs produced by `PathEngine` in a loop. Pause stops the stream. Play restarts the stream. End discards the path and turns the laser off. SET_LASER_POWER commands from the tablet are passed to the projector.
+A node with no stored survey result is omitted with `NOT_SURVEYED`. A node now outside the wedge is omitted with `OUT_OF_FOV`. Stored survey up is plan up. `PathEngine` takes device-centre aim points, so each aim up is that plan up minus `DEVICE_HEIGHT`. `PathEngine` runs on those aims. The CCU sends `PROJECTION_READY`, then waits for a PLAY command to begin streaming the list of DAC cmd pairs produced by `PathEngine` in a loop. Pause stops the stream. Play restarts the stream. End discards the path and turns the laser off. SET_LASER_POWER commands from the tablet are passed to the projector.
 
 ### PathEngine (promo)
 
@@ -95,11 +111,17 @@ For each node corner piece, the vector between the final two DAC cmd pairs of th
 The segments and corner pieces are joined together to form a single list, which should form a loop. This list is the `PathEngine` output.
 
 
-### Promo Config
-- D_MAX, ANGLE_MAX (rad)
-- SURVEY_TOL (m)
-- BASE_PATH_DENSITY, CORNER_DENSITY (points/m)
-- CORNER_LEN (m)
+### Promo Config (read-only file)
+- DEVICE_HEIGHT (m) [default = 1.365]
+- D_MAX [default = 20.0]
+- ANGLE_MAX (rad) [default = 0.40]
+- SURVEY_TOL (m) [default = 0.1]
+- BASE_PATH_DENSITY, CORNER_DENSITY (points/m) [default = 50, 400]
+- CORNER_LEN (m) [default = 0.20]
+- GALVO_MECH_OFFSET_X, GALVO_MECH_OFFSET_Y (rad) [default = 0.1283, 0.0136]
+- GALVO_RAD_PER_DAC (rad) [default = 0.0015466]
+- LIDAR_ANGLE_OFFSETX, LIDAR_ANGLE_OFFSETY (rad) [default = 3.540, 3.390]
+- LIDAR_EAST_OFFSET, LIDAR_NORTH_OFFSET, LIDAR_UP_OFFSET (m) [default = 0.020, 0.0, 0.062]
 
 ---
 

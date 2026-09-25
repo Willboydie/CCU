@@ -120,7 +120,7 @@ Bytes, in order:
 | `deviceId` | string | |
 | `sessionId` | string | |
 | `originIsSet` | bool | `false` until origin is set; `false` again on session end. While `false`, the CCU performs no survey or projection. |
-| `lastKnownPose` | Pose | 24 bytes. Promo build writes six zeros on every frame. |
+| `lastKnownPose` | Pose | 24 bytes. Promo build writes `(0, 0, DEVICE_HEIGHT, 0, 0, 0)` on every frame. `DEVICE_HEIGHT` is the device-centre height in metres from `ccu_survey.cfg` (default `1.276`). |
 | `effectiveYaw` | f32 | `[0, 2π)`. Promo build: clockwise from due north, `wrap(northOffset − stage)`. See the promo section in `POC_WORKFLOW.md`. |
 | `moved` | bool | Later product: latches true on IMU motion that is not base rotation. Promo build writes `0` on every frame. |
 | `originSetStatus` | u8 | `OriginSetStatus`. Promo build writes `IDLE` (`0`) on every frame. |
@@ -138,9 +138,9 @@ One frame per node attempted during `PERFORM_SURVEY`. Fixed payload, **26 bytes*
 | Offset | Size | Field | Type | Notes |
 | --- | --- | --- | --- | --- |
 | 0 | 2 | `id` | u16 | Plan node id |
-| 2 | 4 | `east_mm` | f32 | |
-| 6 | 4 | `north_mm` | f32 | |
-| 10 | 4 | `up_mm` | f32 | Device-centre up. `0` on failure. |
+| 2 | 4 | `east_m` | f32 | |
+| 6 | 4 | `north_m` | f32 | |
+| 10 | 4 | `up_m` | f32 | Plan up, metres. Device-centre up is `up_m − DEVICE_HEIGHT`. `0` on failure. |
 | 14 | 4 | `corner_inner_angle_rad` | f32 | |
 | 18 | 4 | `corner_orientation_rad` | f32 | |
 | 22 | 1 | `surveyed` | bool | `0` on failure |
@@ -289,13 +289,13 @@ Bytes: `tagId` string.
 
 ### `Pose` (24 bytes)
 
-Site millimetres and attitude. Angles are radians. The promo build writes zeros in telemetry. `yaw_rad` on a stored pose is not the live heading; live heading is `effectiveYaw`.
+Site metres and attitude. Angles are radians. The promo build writes `(0, 0, DEVICE_HEIGHT, 0, 0, 0)` in telemetry. `yaw_rad` on a stored pose is not the live heading; live heading is `effectiveYaw`.
 
 | Offset | Size | Field | Type |
 | --- | --- | --- | --- |
-| 0 | 4 | `east_mm` | f32 |
-| 4 | 4 | `north_mm` | f32 |
-| 8 | 4 | `up_mm` | f32 |
+| 0 | 4 | `east_m` | f32 |
+| 4 | 4 | `north_m` | f32 |
+| 8 | 4 | `up_m` | f32 |
 | 12 | 4 | `roll_rad` | f32 |
 | 16 | 4 | `pitch_rad` | f32 |
 | 20 | 4 | `yaw_rad` | f32 |
@@ -307,8 +307,8 @@ A plan vertex. Carried by `PERFORM_SURVEY`, `PERFORM_PROJECTION`, and `PROJECTIO
 | Offset | Size | Field | Type |
 | --- | --- | --- | --- |
 | 0 | 2 | `id` | u16 |
-| 2 | 4 | `east_mm` | f32 |
-| 6 | 4 | `north_mm` | f32 |
+| 2 | 4 | `east_m` | f32 |
+| 6 | 4 | `north_m` | f32 |
 | 10 | 4 | `corner_inner_angle_rad` | f32 |
 | 14 | 4 | `corner_orientation_rad` | f32 |
 

@@ -4,26 +4,28 @@
 
 namespace ccu {
 
-inline constexpr float kGalvoRadPerDac = 1.0e-4f;
-inline constexpr uint16_t kGalvoDacBoresight = 32768;
-inline constexpr uint16_t kGalvoDacMin = 0;
-inline constexpr uint16_t kGalvoDacMax = 65535;
-
-struct GalvoAngle {
-    float azimuth = 0.f;
-    float elevation = 0.f;
-};
+// Mirror separation. A constant in the model, not a config key.
+inline constexpr float kGalvoMirrorSeparationM = 0.015f;
+inline constexpr uint16_t kGalvoDacCentre = 32768;
 
 struct GalvoDac {
-    uint16_t x = kGalvoDacBoresight;
-    uint16_t y = kGalvoDacBoresight;
+    uint16_t x = kGalvoDacCentre;
+    uint16_t y = kGalvoDacCentre;
 };
 
-GalvoAngle galvo_dac_to_angle(uint16_t dac_x, uint16_t dac_y);
-GalvoDac galvo_angle_to_dac(float azimuth, float elevation);
+struct GalvoMirrors {
+    float y_rad = 0.f;
+    float x_rad = 0.f;
+};
 
-// Device-centre XYZ. Mirror offset is zero. Azimuth is atan2(y, x),
-// elevation is atan2(z, horizontal range).
-GalvoAngle galvo_point_to_angle(float x, float y, float z);
+// Y mirror first. X mirror uses that angle. north/east/up are metres in the
+// frame after the lidar-offset shift and the mount rotations.
+GalvoMirrors galvo_mirror_angles(float north, float east, float up);
+
+// trunc toward zero, then clamp into 0 … 65535.
+uint16_t galvo_dac_from_mirror(float mirror_rad);
+
+// Plan metres and clockwise yaw. Shifts by the lidar offsets, then mount rotations.
+GalvoDac galvo_plan_to_dac(float plan_east, float plan_north, float plan_up, float yaw_rad);
 
 }  // namespace ccu

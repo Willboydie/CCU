@@ -340,6 +340,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\session_poll.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\dongle_link.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\session.cpp" />
+    <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\device_config.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\command_allowed.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\protocol.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\yaw.cpp" />
@@ -347,8 +348,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\survey.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\lidar.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\lidar_model.cpp" />
+    <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\galvo_model.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\project.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\path_engine.cpp" />
+    <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\projector_tx.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

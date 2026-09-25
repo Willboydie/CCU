@@ -12,25 +12,27 @@ The CCU program follows [CMD_PROTOCOL.md](CMD_PROTOCOL.md), [POC_WORKFLOW.md](PO
 
 Pose tracking, tag finding, and the IMU are unfinished. This build does not implement them. The tag-finding chapters in the product docs stay as the later product. The promo rules and the byte layout live in [CMD_PROTOCOL.md](CMD_PROTOCOL.md), [POC_WORKFLOW.md](POC_WORKFLOW.md), and [MACRO_ROUTINES.md](MACRO_ROUTINES.md).
 
-Accuracy of aiming is out of scope. `GalvoModel`, `LidarModel`, and `PathEngine` are naive mappings with named constants, each in its own file, so a later calibration can replace the function bodies.
+`GalvoModel`, `LidarModel`, and `PathEngine` are the promo mappings in [MACRO_ROUTINES.md](MACRO_ROUTINES.md), each in its own file. Constants come from `ccu_survey.cfg`. A later calibration can replace a constant or a function body. Callers stay the same.
 
 ---
 
 ## Promo pose
 
-The device is level and stands at the plan origin. DXF `(0, 0)` is that origin (Riverside vertex V01). `PlanGeometry.marker` is ignored. The operator turns the base to bring vertices into the existing ±35° wedge, 13 m range.
+The device is level and stands on the plan origin. The device centre is the lidar point source, at `DEVICE_HEIGHT` above that origin. DXF `(0, 0)` is the origin (Riverside vertex V01). `PlanGeometry.marker` is ignored. The operator turns the base to bring vertices into the ±0.40 rad wedge, 20 m range.
 
 
 | Quantity           | Promo value                                    |
 | ------------------ | ---------------------------------------------- |
-| Position           | `(east, north, up) = (0, 0, 0)` mm             |
+| Position           | `(east, north, up) = (0, 0, DEVICE_HEIGHT)` m |
 | Tilt               | `(roll, pitch) = (0, 0)`                       |
-| `lastKnownPose`    | `(0, 0, 0, 0, 0, 0)` on every telemetry frame  |
+| `lastKnownPose`    | `(0, 0, DEVICE_HEIGHT, 0, 0, 0)` on every frame |
 | `moved`            | `false` on every frame                         |
 | `originSetStatus`  | `IDLE` (`0`) on every frame                    |
 | `tagFindingStatus` | `POSE_KNOWN` (`0`) on every frame              |
 | `effectiveYaw`     | Clockwise from due north, radians in `[0, 2π)` |
 
+
+`DEVICE_HEIGHT` is the lidar height above the plan origin, in metres. It is stored in `ccu_survey.cfg`, which the program only reads. The default is `1.365`. A missing file, or a missing or bad key, keeps that key's default and the log says so. East and north stay 0: the device still stands on the plan origin. Cartesian distances on this link are metres.
 
 Set Origin is one press. The operator places the device on the origin, levels it, points it due north, and taps **Set Origin**. The tablet sends `BEGIN_ORIGIN_SET` with an empty payload. The CCU stores the current AS5048 stage angle as `northOffset`, sets `originIsSet = true`, and leaves the work mode idle. There is no tag walk, no laser-on for tags, and no `WAITING_FOR_TAG`.
 
@@ -130,65 +132,97 @@ New program under `ccu/`. Existing lidar and projector GUI targets stay as they 
 | `ccu/device_id.cpp`       | Build `DEVICE_ID` and `PAIRING_ACCEPTED`                                                          |
 | `ccu/survey.cpp`          | File-static survey progress, `survey_begin`, `survey_poll`, `survey_abort`, `survey_reset`        |
 | `ccu/project.cpp`         | File-static path, `project_begin`, `project_poll`, `project_pause`, `project_play`, `project_end` |
-| `ccu/galvo_model.cpp`     | Naive DAC ↔ angle                                                                                 |
-| `ccu/lidar_model.cpp`     | Naive motor ↔ angle, azimuth sign flip, sample → east-north-up, range → up                      |
-| `ccu/path_engine.cpp`     | Naive corner list                                                                                 |
+| `ccu/galvo_model.cpp`     | Device-frame point → mirror angles → DAC. Origin shift, then mount rotations.                    |
+| `ccu/lidar_model.cpp`     | Motor ↔ device angle. Spherical sample → device east-north-up. No position offset.               |
+| `ccu/path_engine.cpp`     | Corner arms, Galvo DAC pairs, blanked Hermite joins, loop closed.                                |
 | `ccu/serial.cpp`          | POSIX open, non-blocking read, write. This is the implementation the Pi runs.                     |
 | `ccu/angle.cpp`           | Parse `0xA0`, ignore roll, pitch, and IMU yaw, publish stage                                      |
 | `ccu/dongle.cpp`          | TCP listen for the tablet. UDP beacon `SMFIND` / `SMHERE` on port 8766. Paired when a tablet connects. |
 | `ccu/lidar.cpp`           | Non-blocking lidar parser and commands. Tests inject status and control frames.                  |
-| `ccu/projector.cpp`       | Parse projector status, `projector_point`, `projector_path`                                       |
+| `ccu/projector.cpp`       | Path stream: reset, duty, play, `POINT_STREAM`, pause/resume, stop.                              |
 | `ccu_ports.cfg`           | `angle=/dev/ttyACM0`, `dongle=tcp:8765`, `projector=/dev/ttyACM1`, `lidar=/dev/ttyACM3`           |
-| `ccu_survey.cfg`          | Survey wedge, tolerance, dwell, and coarse-scan parameters. The program only reads this file.     |
+| `ccu_survey.cfg`          | Read-only. Promo wedge, galvo, and lidar keys, plus dwell and coarse-scan parameters.            |
 
 
 Each `.cpp` stays a single job. Frame structs live in `ccu/protocol.hpp`. Model constants live next to the function that uses them.
 
 Port functions keep their handle in the `.cpp` file. They call `serial_open`, `serial_read`, and `serial_write`. Unit tests do not open a serial port.
 
-`main` reads `ccu_ports.cfg` from the working directory, or the path in `argv[1]`. It reads `ccu_survey.cfg` from the working directory. A missing survey file keeps the defaults below and the log says so. No USB probing. The orientation board and the tablet dongle share VID `303A` / PID `1001`, so the port file names the ports. On the Pi the working directory is `~/smart_marker/CCU`. `deploy-pi.ps1` copies `ccu_survey.cfg` with the tree.
+`main` reads `ccu_ports.cfg` from the working directory, or the path in `argv[1]`. It reads `ccu_survey.cfg` from the working directory and does not write it. A missing file keeps every default below, and the log says so. A missing or bad key keeps that key's default and leaves the other keys as loaded. The log prints `DEVICE_HEIGHT`, `D_MAX`, and `ANGLE_MAX` after the load. No USB probing. The orientation board and the tablet dongle share VID `303A` / PID `1001`, so the port file names the ports. On the Pi the working directory is `~/smart_marker/CCU`. `deploy-pi.ps1` copies `ccu_survey.cfg` with the tree.
 
-### Naive models
+### Promo models
 
-Constants below are placeholders. Change the constant or the function body later. Callers stay the same.
+The device centre is the lidar point source, at plan `(0, 0, DEVICE_HEIGHT)`. Survey points are measured from that centre. The galvo beam origin is offset from it. `lib/scan/Geometry.hpp` stays the old GUI map. `ccu/lidar_model.cpp` does not use it.
 
-**GalvoModel.** Device centre and beam origin are the same point. DAC `32768` is boresight. `kGalvoRadPerDac = 1.0e-4` rad per count (about 0.1 mrad).
+**LidarModel.** Device angle is the motor angle minus the config offset. The inverse command is the device angle plus that offset. Defaults `3.540` and `3.390` are the mechanical neutral, so boresight is motor `(3.540, 3.390)`.
 
 ```
-azimuth   = (dac_x - 32768) * kGalvoRadPerDac
-elevation = (dac_y - 32768) * kGalvoRadPerDac
+device_azimuth   = motor_x - LIDAR_ANGLE_OFFSETX
+device_elevation = motor_y - LIDAR_ANGLE_OFFSETY
+motor_x          = device_azimuth + LIDAR_ANGLE_OFFSETX
+motor_y          = device_elevation + LIDAR_ANGLE_OFFSETY
 ```
 
-The inverse clamps into `0 … 65535`. A point in device-centre coordinates uses `atan2` for azimuth and elevation. Mirror offset is zero.
+A control sample uses `associated_angle_*`. `distance` in the packet is centimetres. Distance `0` is ignored. The cartesian map has no position offset:
 
-**LidarModel.** Motor angles use the existing neutral in `lib/scan/Geometry.hpp` (`kMechNeutralX`, `kMechNeutralY`) as a stand-in. Rangefinder origin is `(0, 0, 0)` relative to the device centre. Reported range is the distance. Up of a return is `range_mm * sin(elevation)`, elevation positive above the horizontal. `kFloorUpMm = -150` is the stand-in height of the floor under a level device when a range is missing.
+```
+north_d = distance_m * cos(azimuth) * cos(elevation)
+east_d  = distance_m * sin(azimuth) * cos(elevation)
+up_d    = distance_m * sin(elevation)
+```
 
-`kDeviceAzimuthSign = -1`. Motor X is `kMechNeutralX − device_azimuth`, so a clockwise plan azimuth aims to the right. The neutral-to-boresight map is unchanged: geometry azimuth is `mechanical_x − kMechNeutralX`, and device azimuth is the negation of that. A control sample uses `associated_angle_*` with `distance` in centimetres. Distance `0` is ignored.
+`effectiveYaw` frozen at `survey_begin` rotates that point into the plan. Yaw is clockwise from due north:
 
-**PathEngine.** Input is a list of device-centre aim points that already survived the FOV check, plus a laser duty. For each node, emit five projector points: laser off on the segment from the previous node, laser on for a 40 mm square corner (four corners, then back to the aim). No slope, no blanking curve. `projector_path` sends that list.
+```
+plan_east = north_d * sin(yaw) + east_d * cos(yaw)
+plan_north = north_d * cos(yaw) - east_d * sin(yaw)
+plan_up = DEVICE_HEIGHT + up_d
+```
 
-**Survey step.** One node at a time. `effectiveYaw` at `survey_begin` is frozen for the whole job. A later stage sample does not change that job's aim. Azimuth of a node at `(east, north)` mm, device at the origin:
+**GalvoModel.** `project_begin` freezes `effectiveYaw`. Each plan point is rotated into the device frame, and its up stays the plan up:
+
+```
+north_d = plan_east * sin(yaw) + plan_north * cos(yaw)
+east_d  = plan_east * cos(yaw) - plan_north * sin(yaw)
+```
+
+GalvoModel then adds the beam-origin shift, once, before the mount rotations:
+
+```
+(north, east, up) += (LIDAR_NORTH_OFFSET, LIDAR_EAST_OFFSET, -DEVICE_HEIGHT + LIDAR_UP_OFFSET)
+```
+
+Mount rotations are right-handed. First `GALVO_MECH_OFFSET_X` about +up, then `GALVO_MECH_OFFSET_Y` about +north:
+
+```
+east1  = east * cos(ox) - north * sin(ox)
+north1 = east * sin(ox) + north * cos(ox)
+up1    = up
+east2  = east1 * cos(oy) + up1 * sin(oy)
+north2 = north1
+up2    = -east1 * sin(oy) + up1 * cos(oy)
+```
+
+Mirror angles are `laser_projection/tools/spherical.py` with `x = north2`, `y = east2`, `z = up2`. The mirror separation `h` is `0.015` m and is a constant in the model, not a config key. The Y mirror is computed first. The X mirror uses that angle. DAC counts truncate toward zero and clamp into `0 … 65535`:
+
+```
+dac = clamp(32768 + trunc(mirror_angle / GALVO_RAD_PER_DAC), 0, 65535)
+```
+
+**Survey step.** One node at a time. `effectiveYaw` at `survey_begin` is frozen for the whole job. A later stage sample does not change that job's aim. Azimuth of a node at `(east, north)` metres. The device east and north are 0, and its up is `DEVICE_HEIGHT`:
 
 ```
 bearing = wrap_2pi(atan2(east, north))    // clockwise from north
 device_azimuth = wrap_pi(bearing - frozenYaw)
 ```
 
-Farther than `D_MAX_M`, or with `device_azimuth` outside ±`ANGLE_MAX_RAD`: `SURVEY_RESULT` failed, error `OUT_OF_FOV`. The gimbal stays still for that node.
+Farther than `D_MAX`, or with `device_azimuth` outside ±`ANGLE_MAX`: `SURVEY_RESULT` failed, error `OUT_OF_FOV`. The gimbal stays still for that node.
 
-The first in-FOV node enables the motors when status says they are off, then turns Scan Engine on. Point-to-point goes to `(device_azimuth, −el)` and then to `(device_azimuth, +el)`. `el` is `ANGLE_MAX_RAD`, clamped into the mechanical Y window (about −0.79 to +0.51 rad) so a 35° top target is accepted. Samples count only on that upward leg. Each sample becomes east, north, and up with the frozen yaw:
+The first in-FOV node enables the motors when status says they are off, then turns Scan Engine on. Point-to-point goes to `(device_azimuth, −ANGLE_MAX)` and then to `(device_azimuth, +ANGLE_MAX)`, through the inverse lidar map. Samples count only on the upward leg, and only from the live associated angles. The default `ANGLE_MAX` of `0.40` rad sits inside the protocol windows (X `2.5 … 4.2`, Y `2.6 … 3.9`). A motor target outside those windows fails that node `NOT_VISIBLE` and is not sent.
 
-```
-device_azimuth = -(associated_x - kMechNeutralX)
-bearing = wrap(frozenYaw + device_azimuth)
-east  = range * cos(elevation) * sin(bearing)
-north = range * cos(elevation) * cos(bearing)
-up    = range * sin(elevation)
-```
+The sample whose horizontal plan position is closest to the node is the hit, and only when that distance is within `SURVEY_TOL`. Otherwise the result is `NOT_VISIBLE` and the job moves on. A hit sends the gimbal back to that sample's associated motor angles. Arrival is the live mechanical angle within `ARRIVE_TOL_RAD`. A move that exceeds `MOVE_TIMEOUT_S` is `NOT_VISIBLE` for that node. The job continues.
 
-The sample whose horizontal position is closest to the node is the hit, and only when that distance is within `SURVEY_TOL_M`. Otherwise the result is `NOT_VISIBLE` and the job moves on. A hit sends the gimbal back to that sample's associated motor angles. Arrival is the live mechanical angle within `ARRIVE_TOL_RAD`. A move that exceeds `MOVE_TIMEOUT_S` is `NOT_VISIBLE` for that node. The job continues.
-
-A coarse Lissajous then runs for `DWELL_TIME_S`. Amplitude and frequency come from `ccu_survey.cfg`, phase is 0, and the amplitude is shrunk so the centre ± amplitude stays inside the mechanical box. Capture starts once `scan_mode` is coarse and `dynamic_routine` is 0. `STOP_COARSE_SCANNING` ends the capture. The points stay in RAM.
+A coarse Lissajous then runs for `DWELL_TIME_S`. Amplitude and frequency come from `ccu_survey.cfg`, phase is 0, and the amplitude is shrunk so the centre ± amplitude stays inside the mechanical box. Capture starts once `scan_mode` is coarse and `dynamic_routine` is 0. `STOP_COARSE_SCANNING` ends the capture. The points stay in RAM. Each dwell point uses the lidar map above.
 
 The dwell cloud is an unconstrained least-squares plane, centred on the closest sweep point `(e0, n0)`:
 
@@ -196,28 +230,43 @@ The dwell cloud is an unconstrained least-squares plane, centred on the closest 
 up = a * (east - e0) + b * (north - n0) + c
 ```
 
-The node's up is that plane at the node's `(east, north)`. `localSlopeNormal` is `normalize(-a, -b, 1)`, flipped so the up component is positive. Fewer than 3 valid dwell points, or a near-vertical plane, is `NOT_VISIBLE`.
+The node's up is that plane at the node's `(east, north)`. `localSlopeNormal` is `normalize(-a, -b, 1)`, flipped so the up component is positive. Fewer than 3 valid dwell points, or a near-vertical plane, is `NOT_VISIBLE`. The normal is stored on the node. Projection draws the arms on the horizontal plane at the stored up and does not read the normal. `SURVEY_RESULT` stays 26 bytes and carries up, not the normal.
 
-A success stores one Node under the PlanNode id: east, north, up, both corner angles, and `localSlopeNormal`. A later success for the same id replaces it. A failure is reported and leaves any previous Node for that id in place. `SURVEY_RESULT` stays 26 bytes and carries up, not the normal. The last result sets `surveyFinished`. Work mode returns to idle, and the motors are disabled when this job enabled them. `ABORT_SURVEY` reports `ABORTED` for every node not yet reported, disables the motors, and returns to idle. `END_SESSION` does that and then clears the stored Nodes.
+A success stores one Node under the PlanNode id: east, north, up, both corner angles, and `localSlopeNormal`. A later success for the same id replaces it. A failure is reported and leaves any previous Node for that id in place. The tablet paints the latest packet, so a failed resurvey of that same id shows **Not visible** even though the CCU kept the node. The last result sets `surveyFinished`. Work mode returns to idle, and the motors are disabled when this job enabled them. `ABORT_SURVEY` reports `ABORTED` for every node not yet reported, disables the motors, and returns to idle. `END_SESSION` does that and then clears the stored Nodes.
 
-`survey_poll` returns every pass. The session loop writes each result as `SURVEY_RESULT`. `AzimuthPointFinder` and the blocking `LidarController` stay unused.
+`survey_poll` returns every pass. Lidar bytes are read from `survey_poll`. The session loop writes each result as `SURVEY_RESULT`. `AzimuthPointFinder` and the blocking `LidarController` stay unused. Tests push `StatusPayload` and `ControlPayload` and read the command frames.
 
-`ccu_survey.cfg` defaults:
+`ccu_survey.cfg` defaults. Promo keys use the names in [MACRO_ROUTINES.md](MACRO_ROUTINES.md). Dwell keys keep the names already used here.
 
 | Key | Default |
 | --- | --- |
-| `D_MAX_M` | `13` |
-| `ANGLE_MAX_RAD` | `0.61086524` (35°) |
-| `SURVEY_TOL_M` | `0.30` |
+| `DEVICE_HEIGHT` | `1.365` (metres). Pose `up_m` is the same value. |
+| `D_MAX` | `20` |
+| `ANGLE_MAX` | `0.40` |
+| `SURVEY_TOL` | `0.10` |
+| `BASE_PATH_DENSITY`, `CORNER_DENSITY` | `50`, `400` (points/m) |
+| `CORNER_LEN` | `0.20` |
+| `GALVO_MECH_OFFSET_X`, `GALVO_MECH_OFFSET_Y` | `0.1283`, `0.0136` |
+| `GALVO_RAD_PER_DAC` | `0.0015466` |
+| `LIDAR_ANGLE_OFFSETX`, `LIDAR_ANGLE_OFFSETY` | `3.540`, `3.390` |
+| `LIDAR_EAST_OFFSET`, `LIDAR_NORTH_OFFSET`, `LIDAR_UP_OFFSET` | `0.020`, `0.0`, `0.062` |
 | `DWELL_TIME_S` | `1.0` |
 | `COARSE_AMP_X_RAD`, `COARSE_AMP_Y_RAD` | `0.10` |
 | `COARSE_FREQ_X_HZ`, `COARSE_FREQ_Y_HZ` | `2`, `4` |
 | `ARRIVE_TOL_RAD` | `0.02` |
 | `MOVE_TIMEOUT_S` | `8` |
 
-The tablet enables **Survey** only for vertices inside its own ±35° / 13 m wedge. A CCU `OUT_OF_FOV` from the tablet means `ccu_survey.cfg` is tighter than that wedge.
+The tablet wedge matches those defaults: ±0.40 rad and 20 m. A CCU `OUT_OF_FOV` while the tablet still offers **Survey** means `ccu_survey.cfg` is tighter than that wedge.
 
-**Projection step.** Drop any node id that has no stored survey result (`NOT_SURVEYED`) or that now sits outside the wedge (`OUT_OF_FOV`). Run `PathEngine` on the rest. Send `PROJECTION_READY`. `projectorStatus` goes `COMPUTING_PATH` then `PROJECTING`. `project_poll` feeds the projector. Pause freezes the stream. End discards the path and turns the laser off.
+**PathEngine.** Input is the accepted nodes, in list order, after the FOV check. Each corner lies on the horizontal plane at the stored plan up.
+
+The start arm bearing is `corner_orientation_rad`, clockwise from north (`east = sin`, `north = cos`). The exit arm is that angle plus `corner_inner_angle_rad`. Each arm is `CORNER_LEN` long. Point density is `400` points/m at the vertex and changes linearly to `50` points/m at `CORNER_LEN`. Both ends are included. The start arm is reversed so the vertex is the single middle point.
+
+Each plan point goes through GalvoModel. Joins are cubic Hermite curves in DAC-count space. The tangents are the raw DAC steps at the outgoing end and the incoming start. The curve is walked in steps of the outgoing step length. Corner endpoints are not repeated. A zero end step searches backward for a non-zero step. If the whole corner is one DAC pair, the join is the two endpoints only.
+
+Laser on for corner points. Laser off for every join, including the join from the last accepted node back to the first. One node still has that closing join, with the laser off.
+
+**Projection step.** Drop any node id that has no stored survey result (`NOT_SURVEYED`) or that now sits outside the wedge (`OUT_OF_FOV`). The wedge test uses the vertex, at the yaw frozen in `project_begin`. Send `PROJECTION_READY`. `projectorStatus` goes `COMPUTING_PATH` then `PROJECTING`. `project_poll` streams the DAC list: `RESET_STREAM`, the session laser duty, `PLAY`, then `POINT_STREAM` records (big-endian X/Y, laser byte). Raw `PAUSE_STREAM` / `RESUME_STREAM` gate the sender. Pause freezes the stream. Play restarts that same list. A later stage sample does not rebuild it. End sends `STOP`, discards the path, and turns the laser off. `SET_LASER_POWER` from the tablet is passed through while the path is live.
 
 ### Orientation firmware
 
@@ -251,15 +300,15 @@ Strings are a `u8` length plus that many UTF-8 bytes, not NUL-terminated. Length
 
 | Offset | Type | Field       |
 | ------ | ---- | ----------- |
-| 0      | f32  | `east_mm`   |
-| 4      | f32  | `north_mm`  |
-| 8      | f32  | `up_mm`     |
+| 0      | f32  | `east_m`   |
+| 4      | f32  | `north_m`  |
+| 8      | f32  | `up_m`     |
 | 12     | f32  | `roll_rad`  |
 | 16     | f32  | `pitch_rad` |
 | 20     | f32  | `yaw_rad`   |
 
 
-Promo telemetry writes six zeros.
+Promo telemetry writes `(0, 0, DEVICE_HEIGHT, 0, 0, 0)`.
 
 **PlanNode** (18 bytes), carried by `PERFORM_SURVEY`, `PERFORM_PROJECTION`, and `PROJECTION_READY`:
 
@@ -267,8 +316,8 @@ Promo telemetry writes six zeros.
 | Offset | Type | Field                    |
 | ------ | ---- | ------------------------ |
 | 0      | u16  | `id`                     |
-| 2      | f32  | `east_mm`                |
-| 6      | f32  | `north_mm`               |
+| 2      | f32  | `east_m`                |
+| 6      | f32  | `north_m`               |
 | 10     | f32  | `corner_inner_angle_rad` |
 | 14     | f32  | `corner_orientation_rad` |
 
@@ -293,7 +342,7 @@ Heartbeat period while the link is down: 2 Hz.
 
 10 Hz while a session exists, including while the tablet is disconnected. The tablet ignores a frame whose ids do not match. Ignored frames do not refresh the 5 s connected timer.
 
-Promo fills `moved = 0`, pose zeros, `originSetStatus = 0`, `tagFindingStatus = 0`. `laserPower` is 15–99. Default duty before the tablet sends one is 30.
+Promo fills `moved = 0`, pose `(0, 0, DEVICE_HEIGHT, 0, 0, 0)`, `originSetStatus = 0`, `tagFindingStatus = 0`. `laserPower` is 15–99. Default duty before the tablet sends one is 30.
 
 `0x04` ****`SURVEY_RESULT`
 
@@ -301,9 +350,9 @@ Promo fills `moved = 0`, pose zeros, `originSetStatus = 0`, `tagFindingStatus = 
 | Field                    | Type |
 | ------------------------ | ---- |
 | `id`                     | u16  |
-| `east_mm`                | f32  |
-| `north_mm`               | f32  |
-| `up_mm`                  | f32  |
+| `east_m`                | f32  |
+| `north_m`               | f32  |
+| `up_m`                  | f32  |
 | `corner_inner_angle_rad` | f32  |
 | `corner_orientation_rad` | f32  |
 | `surveyed`               | bool |
@@ -312,7 +361,7 @@ Promo fills `moved = 0`, pose zeros, `originSetStatus = 0`, `tagFindingStatus = 
 | `surveyFinished`         | bool |
 
 
-`up_mm` is in the device-centre frame (pose is the origin, so this is also plan up). On failure, `up_mm = 0` and `surveyed = 0`.
+`up_m` is plan up in metres. The device centre is at plan up `DEVICE_HEIGHT`, so device-centre up is `up_m - DEVICE_HEIGHT`. On failure, `up_m = 0` and `surveyed = 0`.
 
 `0x05` ****`PROJECTION_READY`
 
@@ -389,7 +438,7 @@ east  = sin(effectiveYaw)
 north = cos(effectiveYaw)
 ```
 
-A node at `(east, north)` is in view when its distance from `(0, 0)` is at most 13 m and the clockwise bearing `atan2(east, north)` is within ±35° of `effectiveYaw`.
+A node at `(east, north)` is in view when its distance from `(0, 0)` is at most 20 m and the clockwise bearing `atan2(east, north)` is within ±0.40 rad of `effectiveYaw`. `DemoPlans.RANGE` is `20` and `DemoPlans.HALF_FOV` is `0.40` rad.
 
 Laser slider values are clamped to 15–99 before `SET_LASER_POWER`.
 
@@ -397,7 +446,7 @@ Laser slider values are clamped to 15–99 before `SET_LASER_POWER`.
 
 ## Unit-test gates
 
-C++ tests follow `tests/protocol_test.cpp`: a `check` helper, `FAIL:` on stderr, exit 0 only when nothing failed. Kotlin tests follow the existing JUnit classes under `app/src/test`. Each gate is its own executable or test class. A gate must pass before the next one is started. G1–G6, G8–G11, and G14–G17 have passed. G7, G12, and G13 are reopened for the elevation-sweep survey. Hardware gates run on the Pi.
+C++ tests follow `tests/protocol_test.cpp`: a `check` helper, `FAIL:` on stderr, exit 0 only when nothing failed. Kotlin tests follow the existing JUnit classes under `app/src/test`. Each gate is its own executable or test class. A gate must pass before the next one is started. G1–G3, G5, G10, G11, and G14–G17 have passed. G4, G6, G7, G8, G9, G12, and G13 are reopened for the promo models and the ±0.40 rad / 20 m wedge. Hardware gates run on the Pi.
 
 Port I/O is not part of these gates. Session-static tests call `session_reset()` first and run one at a time.
 
@@ -407,20 +456,20 @@ Port I/O is not part of these gates. Session-static tests call `session_reset()`
 | G1   | C++ pack/unpack of every frame in the layout, including overlong strings dropped, duty outside 15–99 dropped, and `0xE5` refused                                                                                                                                                           | `ccu_protocol_test`                               |
 | G2   | Kotlin parser and encoder agree with the same byte fixtures as G1                                                                                                                                                                                                                          | `SerialFrameParserTest`, `TabletFrameEncoderTest` |
 | G3   | `effective_yaw`: at equal angles yaw is 0; a stage decrease of `π/2` yields yaw `π/2` (clockwise); wrap into `[0, 2π)`                                                                                                                                                                     | `ccu_yaw_test`                                    |
-| G4   | Kotlin FOV: device at `(0,0)`, yaw 0 includes a node on +north and excludes one on +east; yaw `π/2` does the opposite; `geometry.marker` is not the device point                                                                                                                           | `PlanCoordinatesTest`                             |
+| G4   | Kotlin FOV: device at `(0,0)`. Yaw 0 includes +north and 20 m on +north, and excludes +east, a bearing just outside ±0.40 rad, and 20.05 m. Yaw `π/2` includes +east and excludes +north. `geometry.marker` is not the device point | `PlanCoordinatesTest`                             |
 | G5   | `command_allowed` matches the accept table, including tag commands dropped in every mode, and survey refused while origin is clear                                                                                                                                                         | `ccu_command_allowed_test`                        |
-| G6   | `GalvoModel` round-trips a DAC pair through angle and back, clamps at 0 and 65535, and uses `32768` as boresight                                                                                                                                                                           | `ccu_galvo_model_test`                            |
-| G7   | `LidarModel` maps the neutral motor pair to azimuth 0, elevation 0; a known elevation and range produce the expected up; origin offset is `(0,0,0)`. Device azimuth `+0.2` rad maps to motor X `kMechNeutralX − 0.2`, and the inverse recovers `+0.2`                             | `ccu_lidar_model_test`                            |
-| G8   | `PathEngine` on two nodes emits a laser-off connector and a laser-on 4-point corner for each, and an empty input emits an empty path                                                                                                                                                       | `ccu_path_engine_test`                            |
-| G9   | Bearing helper: a node on +north has bearing 0, a node on +east has bearing `π/2`, outside ±35° is out of FOV                                                                                                                                                                              | `ccu_bearing_test`                                |
+| G6   | `GalvoModel` computes the Y mirror before the X mirror. DAC truncates toward zero and clamps to 0 and 65535. With yaw 0, plan point `(0, 5, DEVICE_HEIGHT)` is shifted by the lidar offsets before the mount rotations, so the DAC pair is not `(32768, 32768)`. `h` is `0.015` m | `ccu_galvo_model_test`                            |
+| G7   | Motor `(3.540, 3.390)` is azimuth 0, elevation 0. Device azimuth `+0.2` maps to motor X `3.740`, and the inverse recovers `+0.2`. A level 2 m return has device up 0 and device north 2, with no position offset. At yaw 0 its plan up is `DEVICE_HEIGHT` | `ccu_lidar_model_test`                            |
+| G8   | Empty input emits an empty path. One node has laser-on arms, the vertex as the single middle point, and a laser-off closing join. Two nodes add a laser-off Hermite join between them and a laser-off join from the last back to the first. Arms are `CORNER_LEN` long on the stored up | `ccu_path_engine_test`                            |
+| G9   | Bearing helper: +north is bearing 0, +east is `π/2`. A node at 20 m on +north and inside ±0.40 rad is in the wedge. Just outside ±0.40 rad, and just past 20 m, are out of FOV | `ccu_bearing_test`                                |
 | G10  | `session_reset`, then `BEGIN_NEW_SESSION` latches running and a session id. `BEGIN_ORIGIN_SET` with stage `1.2` rad stores that north offset, sets origin, yaw 0. A later stage `1.2 - π/2` reports yaw `π/2`. A second origin command is dropped. `END_SESSION` clears origin and running | `ccu_session_test`                                |
-| G11  | Telemetry built from those getters has pose zeros, `moved = 0`, both status enums `0`, and the yaw from G10                                                                                                                                                                                | `ccu_telemetry_test`                              |
-| G12  | Scripted lidar frames, no serial port. An out-of-wedge node emits `OUT_OF_FOV` and no point-to-point command. An in-wedge sweep with a known plane stores a Node (id, up, `localSlopeNormal`) and sets `surveyFinished` on that result. A sweep whose closest sample is outside `SURVEY_TOL` emits `NOT_VISIBLE` and stores no Node. A second success for the same id replaces the Node. A failure leaves the previous Node in place | `ccu_survey_test`                                 |
-| G13  | Projection of an unsurveyed id yields `PROJECTION_READY` with that id and `NOT_SURVEYED`. A Node planted through the G12 transport is included, and the path from G8 is stored                                                                                                             | `ccu_project_test`                                |
+| G11  | Telemetry built from those getters has pose `(0, 0, DEVICE_HEIGHT, 0, 0, 0)`, `moved = 0`, both status enums `0`, and the yaw from G10                                                                                                                                                     | `ccu_telemetry_test`                              |
+| G12  | Scripted lidar frames, no serial port. An out-of-wedge node emits `OUT_OF_FOV` and no point-to-point command. An in-wedge sweep stores a Node (id, up, `localSlopeNormal`) and sets `surveyFinished`. The point-to-point target is device angle plus the lidar angle offset. A motor target outside Y `2.6 … 3.9` emits `NOT_VISIBLE` and no point-to-point command. A sweep whose closest sample is outside `SURVEY_TOL` emits `NOT_VISIBLE` and stores no Node. Plan up follows `DEVICE_HEIGHT + range * sin(elevation)` with no position offset. A second success for the same id replaces the Node. A failure leaves the previous Node in place | `ccu_survey_test`                                 |
+| G13  | An unsurveyed id yields `PROJECTION_READY` with `NOT_SURVEYED`. A node outside the frozen wedge yields `OUT_OF_FOV`. A Node planted through the G12 transport is drawn as the G8 DAC list: laser on for the arms, laser off for the closing join. The recorded stream frames carry those DAC pairs | `ccu_project_test`                                |
 | G14  | `END_SESSION` mid-survey emits `ABORTED` for the remaining ids and `survey_reset` leaves no results for a later projection                                                                                                                                                                 | `ccu_session_test` (second case)                  |
 
 
-G12's seam is a transport on `ccu/lidar.hpp`. The test pushes `StatusPayload` and `ControlPayload` and reads the command frames. The Pi build uses the serial port. The test loads a short `DWELL_TIME_S` and does not sleep. That is the only test seam into the lidar port.
+G12's seam is a transport on `ccu/lidar.hpp`. The test pushes `StatusPayload` and `ControlPayload` and reads the command frames. The Pi build uses the serial port. The test loads a short `DWELL_TIME_S` and does not sleep. That is the only test seam into the lidar port. G13 records projector stream frames the same way and does not open a serial port.
 
 Kotlin UI gates, still without a device:
 
@@ -511,34 +560,60 @@ Each step runs on the Pi after `deploy-pi.ps1 -Gate Hn`. Watch the real device. 
 
 | Step | Setup                                                            | Pass                                                                                                                                                                                                                                                         |
 | ---- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| H1   | `ccu_ports.cfg` names the four ports above. `ccu_survey.cfg` is in the working directory. Build and run `ccu`. | Process stays up. Each port opened. Log shows `wifi listening 0.0.0.0:8765` and `wifi beacon 0.0.0.0:8766`. Log shows the survey file loaded (`D_MAX_M` 13, `ANGLE_MAX_RAD` about 0.611). Rename the survey file away and start again: the process stays up and the log says the defaults are in use. Put the file back. |
+| H1   | `ccu_ports.cfg` names the four ports above. Config sub-gates H1.1–H1.3 below, in order. | Each port opened. Log shows `wifi listening 0.0.0.0:8765` and `wifi beacon 0.0.0.0:8766`. Each sub-gate passes. |
 | H2   | Orientation board flashed, 10 Hz, tau 1 s. Turn the base slowly. | Log of stage updates at about 10 Hz. A fast flick does not jump the filtered angle by the full flick. Roll, pitch, and IMU yaw in the log stay 0.                                                                                                            |
 | H3   | Tablet and Pi both on `willys_little_chicken`. App installed over the PC USB lead. | Dialog shows **Smart Marker**. Session idle. No telemetry.                                                                                                                                                         |
-| H4   | Tap **Start session**.                                           | `PAIRING_ACCEPTED`. Telemetry at 10 Hz. Pose screen still says **Set Origin**. `originIsSet` is false. `moved` is false. Pose zeros.                                                                                                                         |
-| H5   | Point the device due north. Tap **Set Origin**.                  | Next telemetry has `originIsSet`. Pose screen shows **Pose Identified**. Wedge sits on `(0, 0)` and points up.                                                                                                                                               |
+| H4   | Tap **Start session**.                                           | `PAIRING_ACCEPTED`. Telemetry at 10 Hz. Pose screen still says **Set Origin**. `originIsSet` is false. `moved` is false. Pose is `(0, 0, DEVICE_HEIGHT, 0, 0, 0)`.                                                                                            |
+| H5   | Point the device due north. Tap **Set Origin**.                  | Next telemetry has `originIsSet`. Pose screen shows **Pose Identified**. Wedge sits on `(0, 0)`, points up, and is the narrow ±0.40 rad fan (about ±23°).                                                                                                                                               |
 | H6   | Turn the base clockwise about 90°.                               | Wedge turns toward +east. `effectiveYaw` near `π/2`. Close the tablet app, or leave the phone hotspot, for 6 s. `DEVICE_ID` resumes. Origin stays. Open the app on the phone hotspot and tap **Join session**. Wedge matches the current base. |
 | H7   | **End session**, start again.                                    | Origin is clear. Wedge hidden. Set Origin is required again.                                                                                                                                                                                                 |
-| H8   | Origin set. Survey sub-gates H8.1–H8.8 below, in order. Deploy with `-Gate H8`. | Each sub-gate passes. After H8.3 the vertex shows **Surveyed** and **Survey** can be tapped again. |
-| H9   | Project the vertex surveyed in H8.3.                             | `PROJECTION_READY` lists it. The laser draws the 40 mm corner on the floor at that vertex, at the plane-fit height. **Pause** turns it off, **Play** starts it again, **End** finishes the routine and discards the pathway. A vertex the tablet shows as **Not visible** keeps **Project** disabled. |
-| H10  | Video path, cold start.                                          | H3 through H6, then two in-wedge floor vertices surveyed with the base held still, then both projected.                                                                                                                     |
+| H8   | Origin set. Survey sub-gates H8.1–H8.11 below, in order. Deploy with `-Gate H8`. | Each sub-gate passes. After H8.3 the vertex shows **Surveyed** and **Survey** can be tapped again. |
+| H9   | Projection sub-gates H9.1–H9.6 below, in order. The H8.3 vertex is already **Surveyed**. | Each sub-gate passes. |
+| H10  | Video path, cold start.                                          | H3 through H6, then two in-wedge floor vertices surveyed with the base held still, then both projected as H9.3.                                                                                                                     |
 
 
 H10 is the promo-video check.
 
-### Survey sub-gates
+### Config sub-gates
 
-These extend H8. Watch the gimbal and the tablet. The **SURVEYING** overlay is the progress readout (`done / total`). **Cancel** on that overlay sends `ABORT_SURVEY`. The tablet paints every failed result as **Not visible**, so a still gimbal is what distinguishes `OUT_OF_FOV` from a sweep that ends `NOT_VISIBLE`.
+These extend H1. Restart `ccu` after each edit to `ccu_survey.cfg`. Put the shipped file back before leaving H1.
 
 | Step | Setup | Pass |
 | ---- | ----- | ---- |
-| H8.1 | In `ccu_survey.cfg` set `ANGLE_MAX_RAD` to `0.20`. Restart `ccu`. Origin set, wedge up. Select one vertex the tablet still draws inside its 35° wedge and outside ±0.20 rad of the facing. Tap **Survey**. Restore `ANGLE_MAX_RAD` to `0.61086524` and restart before H8.2. | **Survey** is enabled. The gimbal stays still. The overlay reaches `1 / 1` and closes. The vertex shows **Not visible**. **Survey** can be tapped again. |
-| H8.2 | Default `ccu_survey.cfg`. One in-wedge vertex on the floor, within 13 m. Tap **Survey** and watch the gimbal through the upward sweep. | Motors enable. The gimbal seeks the low end of that azimuth, then sweeps upward to the high clamp (the mechanical Y limit, about +0.51 rad, because 35° is wider than the gimbal). |
-| H8.3 | Same survey as H8.2, from the return onward. The floor at that vertex is within 0.30 m of the plan point. | The gimbal returns to a pose on the same azimuth. A small Lissajous runs for about 1 s, then stops, and the motors disable. The overlay closes. The vertex shows **Surveyed**. **Survey** can be tapped again. |
-| H8.4 | Default config. A different vertex from H8.3, in the tablet wedge, whose plan point is not on a surface within 0.30 m (past the near wall, still inside 13 m). Tap **Survey**. | The gimbal sweeps that azimuth from low to high and does not start the Lissajous. The vertex shows **Not visible**. The H8.3 vertex still shows **Surveyed**. The overlay finishes. The motors disable. |
-| H8.5 | Two other in-wedge floor vertices. Mark the boresight on the floor with tape. Tap **Survey**. While the first sweep is moving, turn the base about 20°. | The second sweep stays on the tape line from the tap. The on-screen wedge turns with the base. Each of these two shows **Surveyed** when its frozen-yaw return lands within 0.30 m of the plan point, and **Not visible** when it does not. The overlay finishes at `2 / 2`. The motors disable. |
+| H1.1 | Shipped `ccu_survey.cfg` in the working directory. Build and run `ccu`. | Process stays up. Log shows `DEVICE_HEIGHT` 1.365 m, `D_MAX` 20, and `ANGLE_MAX` 0.40. |
+| H1.2 | Rename `ccu_survey.cfg` away. Start `ccu` again. | Process stays up. The log says the defaults are in use, including `DEVICE_HEIGHT` 1.365 m, `D_MAX` 20, and `ANGLE_MAX` 0.40. Put the file back. |
+| H1.3 | In the file set `DEVICE_HEIGHT=0` and `D_MAX=abc`. Leave `ANGLE_MAX=0.40`. Start `ccu`. | Process stays up. The log uses the default height 1.365 m and the default `D_MAX` 20. `ANGLE_MAX` stays 0.40 from the file. Restore the shipped file and restart. |
+
+### Survey sub-gates
+
+These extend H8. Watch the gimbal and the tablet. The **SURVEYING** overlay is the progress readout (`done / total`). **Cancel** on that overlay sends `ABORT_SURVEY`. The tablet paints every failed result as **Not visible**, so a still gimbal is what distinguishes `OUT_OF_FOV` from a sweep that ends `NOT_VISIBLE`. A failed resurvey of an id the tablet already shows as **Surveyed** repaints that vertex **Not visible**. The CCU still keeps the previous node; G12 checks that.
+
+| Step | Setup | Pass |
+| ---- | ----- | ---- |
+| H8.1 | In `ccu_survey.cfg` set `ANGLE_MAX` to `0.20`. Restart `ccu`. Origin set, wedge up. Select one vertex the tablet still draws inside its ±0.40 rad wedge and outside ±0.20 rad of the facing. Tap **Survey**. Restore `ANGLE_MAX` to `0.40` and restart before H8.2. | **Survey** is enabled. The gimbal stays still. The overlay reaches `1 / 1` and closes. The vertex shows **Not visible**. **Survey** can be tapped again. |
+| H8.2 | Default `ccu_survey.cfg`. One in-wedge vertex on the floor, within 20 m. Tap **Survey** and watch the gimbal through the upward sweep. | Motors enable. The gimbal seeks the low end of that azimuth, about −23° elevation, then sweeps upward to about +23°. Both ends stop short of the mechanical limits. |
+| H8.3 | Same survey as H8.2, from the return onward. The floor at that vertex is within 0.10 m of the plan point. | The gimbal returns to a pose on the same azimuth. A small Lissajous runs for about 1 s, then stops, and the motors disable. The overlay closes. The vertex shows **Surveyed**. **Survey** can be tapped again. |
+| H8.4 | Default config. A different vertex from H8.3, in the tablet wedge, whose plan point is not on a surface within 0.10 m (past the near wall, still inside 20 m). Tap **Survey**. | The gimbal sweeps that azimuth from low to high and does not start the Lissajous. The vertex shows **Not visible**. The H8.3 vertex still shows **Surveyed**. The overlay finishes. The motors disable. |
+| H8.5 | Two other in-wedge floor vertices. Mark the boresight on the floor with tape. Tap **Survey**. While the first sweep is moving, turn the base about 20°. | The second sweep stays on the tape line from the tap. The on-screen wedge turns with the base. Each of these two shows **Surveyed** when its frozen-yaw return lands within 0.10 m of the plan point, and **Not visible** when it does not. The overlay finishes at `2 / 2`. The motors disable. |
 | H8.6 | Turn the base back until two unsurveyed floor vertices sit in the wedge. Tap **Survey**. During the first dwell, tap **Cancel**. | The overlay closes. The Lissajous stops and the motors disable. Those two stay unsurveyed. **Survey** can be tapped again. **Project** stays disabled while they are the only selection. |
 | H8.7 | The H8.3 vertex still shows **Surveyed**. Survey it again. During the dwell, **End session**. | The gimbal stops and the motors disable. The next screen requires **Set Origin**. Start a new session, set origin, and select that vertex: it is unsurveyed, and **Project** stays disabled. |
 | H8.8 | Set `DWELL_TIME_S` to `0.3`. Restart `ccu`. Survey one in-wedge floor vertex. Restore `DWELL_TIME_S` to `1.0` and restart. | The Lissajous is a short burst, much shorter than the dwell in H8.3. The vertex shows **Surveyed**. |
+| H8.9 | Set `D_MAX` to `5`. Restart `ccu`. Origin set. Select one vertex the tablet still draws, farther than 5 m from the origin and within 20 m. Tap **Survey**. Restore `D_MAX` to `20` and restart. | **Survey** is enabled. The gimbal stays still. The vertex shows **Not visible**. The overlay finishes. |
+| H8.10 | Set `ANGLE_MAX` to `0.90`. Restart `ccu`. Origin set, wedge up. Select one floor vertex the tablet draws inside its ±0.40 rad wedge. Tap **Survey**. Restore `ANGLE_MAX` to `0.40` and restart. | The gimbal does not start the sweep. The vertex shows **Not visible**. The overlay finishes. The motors stay disabled. |
+| H8.11 | Set `MOVE_TIMEOUT_S` to `0.2`. Restart `ccu`. Survey one in-wedge floor vertex. Restore `MOVE_TIMEOUT_S` to `8` and restart. | The gimbal starts toward the low end. The Lissajous does not run. The vertex shows **Not visible**. The overlay finishes and the motors disable. |
+
+### Projection sub-gates
+
+These extend H9. The H8.3 vertex is **Surveyed**. Watch the beam, not only the tablet. A bright stretch is laser on. A dark galvo move is a blanked join.
+
+| Step | Setup | Pass |
+| ---- | ----- | ---- |
+| H9.1 | Select only the H8.3 vertex. Tap **Project**. | The beam draws two level arms, about 0.20 m long, meeting at that vertex, at the plane-fit height. Between the two tips the galvo travels with the laser off, then the corner repeats. |
+| H9.2 | Same projection, still running. Tap **Pause**, then **Play**, then **End**. | **Pause** turns the beam off and stops the galvo. **Play** draws the same corner again. **End** turns the beam off, leaves the work idle, and **Project** can be tapped again. |
+| H9.3 | Survey a second in-wedge floor vertex. Select both surveyed vertices. Tap **Project**. | Each vertex gets a bright corner of two arms. Travel from one corner to the next is dark. After the second corner the return to the first is dark, and the pattern repeats. |
+| H9.4 | Leave H9.3 running. Turn the base about 20°. Then tap **End**. | The corners stay on the floor where they were when projection started. The on-screen wedge turns with the base. **End** stops the beam. |
+| H9.5 | Project the H8.3 vertex again. While it is running, raise the laser slider. | The beam brightens. The corner stays the same shape and the same place. **End** stops it. |
+| H9.6 | Select only a vertex the tablet shows as **Unsurveyed** or **Not visible**. | **Project** stays disabled. The note says to survey first. |
 
 `lib/utils/frontend_protocol.hpp` and `frontend_gui` keep compiling for the old applet. `ccu` does not link them.
 
@@ -599,8 +674,8 @@ py -3 scripts/h2-5.py
 5. POSIX `serial.cpp` and the four port files. `session_poll` calls them. `ccu_ports.cfg` is already the Pi port list. Firmware interval and stage tau. Flash `esp32-c3-serial`. The board enumerates on the Pi as `/dev/ttyACM0`.
 6. Done. Tablet UI: session dialog, pose screen, wedge, survey and project payloads. G15–G17.
 7. The tablet and the Pi join the phone hotspot `willys_little_chicken`. The access-point profile `Hotspot` is deleted. H2.0 through H2.4 passed on this PC. H2.5 and H2.6 are not run.
-8. Hardware gates H1–H7: `.\scripts\deploy-pi.ps1 -Gate Hn`, then run the printed commands in an SSH session.
-9. Elevation-sweep survey. `ccu_survey.cfg`, the lidar command path, frozen yaw, the plane fit, the Node store, `SURVEY_RESULT` on the link, and idle when the job finishes. Re-run G7, G12, and G13. Then H8.1–H8.8, H9, and H10.
+8. Hardware gates H2–H7: session, origin, and yaw. `.\scripts\deploy-pi.ps1 -Gate Hn`, then run the printed commands in an SSH session. H1 waits for the config log in step 9.
+9. Promo models and the elevation sweep. `ccu_survey.cfg`, the lidar command path, the galvo DAC path, blanked Hermite joins, the projector stream, frozen yaw, the plane fit, and the Node store. Re-run G4, G6, G7, G8, G9, G12, and G13. Then H1.1–H1.3, H8.1–H8.11, H9.1–H9.6, and H10.
 
 ---
 
@@ -610,6 +685,6 @@ py -3 scripts/h2-5.py
 2. **Start session.** Pose screen: **Set Origin.**
 3. Tap **Set Origin.** **Pose Identified.** Open the plan. Wedge at the corner, pointing up the west edge.
 4. Turn the base until two vertices enter the wedge.
-5. Survey them. Leave the base still. Each vertex is swept low to high, the gimbal dwells, and the overlay advances. Both show **Surveyed**.
-6. Project them. The naive corners appear on the floor. Pause, play, end.
+5. Survey them. Leave the base still. Each vertex is swept about ±23° in elevation, the gimbal dwells, and the overlay advances. Both show **Surveyed**.
+6. Project them. Each vertex is two level arms about 0.20 m long. Travel between the corners is dark. Pause, play, end.
 

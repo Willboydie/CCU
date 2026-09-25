@@ -30,9 +30,14 @@ void projector_close() {
 }
 
 void projector_poll() {
-    if (fd_ < 0) return;
-    uint8_t buf[256];
-    serial_read(fd_, buf, static_cast<int>(sizeof buf));
+    if (fd_ >= 0) {
+        uint8_t buf[256];
+        serial_read(fd_, buf, static_cast<int>(sizeof buf));
+        const std::vector<std::vector<uint8_t>> frames = projector_take_frames();
+        for (const std::vector<uint8_t>& frame : frames) {
+            if (!frame.empty()) serial_write(fd_, frame.data(), static_cast<int>(frame.size()));
+        }
+    }
 }
 
 }  // namespace ccu

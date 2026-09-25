@@ -1,8 +1,8 @@
+#include "device_config.hpp"
 #include "galvo_model.hpp"
 
 #include <cmath>
 #include <cstdio>
-#include <numbers>
 
 namespace {
 
@@ -27,70 +27,79 @@ void check_near(float got, float want, const char* what) {
     ++g_fails;
 }
 
-void test_boresight_is_32768() {
-    const ccu::GalvoAngle angle = ccu::galvo_dac_to_angle(ccu::kGalvoDacBoresight, ccu::kGalvoDacBoresight);
-    check(angle.azimuth == 0.f, "boresight azimuth is 0");
-    check(angle.elevation == 0.f, "boresight elevation is 0");
-
-    const ccu::GalvoDac dac = ccu::galvo_angle_to_dac(0.f, 0.f);
-    check_eq_u16(dac.x, ccu::kGalvoDacBoresight, "zero azimuth is DAC 32768");
-    check_eq_u16(dac.y, ccu::kGalvoDacBoresight, "zero elevation is DAC 32768");
+float arccotangent(float n) {
+    constexpr float kPi = 3.14159265358979323846f;
+    if (n == 0.f) return kPi / 2.f;
+    return std::atan2(1.f, n);
 }
 
-void test_round_trip() {
-    const ccu::GalvoDac in{40000, 25000};
-    const ccu::GalvoAngle angle = ccu::galvo_dac_to_angle(in.x, in.y);
-    check_near(angle.azimuth, (40000 - 32768) * ccu::kGalvoRadPerDac, "azimuth scale");
-    check_near(angle.elevation, (25000 - 32768) * ccu::kGalvoRadPerDac, "elevation scale");
-    check(angle.azimuth > 0.f, "DAC above 32768 is positive azimuth");
-    check(angle.elevation < 0.f, "DAC below 32768 is negative elevation");
-
-    const ccu::GalvoDac out = ccu::galvo_angle_to_dac(angle.azimuth, angle.elevation);
-    check_eq_u16(out.x, in.x, "DAC X round trip");
-    check_eq_u16(out.y, in.y, "DAC Y round trip");
-
-    const ccu::GalvoDac ends = ccu::galvo_angle_to_dac(
-        ccu::galvo_dac_to_angle(0, 65535).azimuth,
-        ccu::galvo_dac_to_angle(0, 65535).elevation);
-    check_eq_u16(ends.x, 0, "DAC 0 round trip");
-    check_eq_u16(ends.y, 65535, "DAC 65535 round trip");
+ccu::GalvoMirrors oracle_mirrors(float north, float east, float up) {
+    constexpr float kPi = 3.14159265358979323846f;
+    const float h = ccu::kGalvoMirrorSeparationM;
+    const float y = arccotangent((h - up) / north) - kPi / 2.f;
+    const float along = std::sin(kPi / 2.f + y);
+    const float x = (arccotangent((east * along) / (north + h * along)) - kPi / 2.f) / -1.f;
+    return {y, x};
 }
 
-void test_clamp() {
-    const ccu::GalvoDac low = ccu::galvo_angle_to_dac(-4.f, -4.f);
-    check_eq_u16(low.x, 0, "azimuth clamps at 0");
-    check_eq_u16(low.y, 0, "elevation clamps at 0");
+ccu::GalvoDac oracle_plan(float plan_east, float plan_north, float plan_up, float yaw) {
+    float north = plan_east * std::sin(yaw) + plan_north * std::cos(yaw);
+    float east = plan_east * std::cos(yaw) - plan_north * std::sin(yaw);
+    float up = plan_up;
+    north += ccu::lidar_north_offset_m();
+    east += ccu::lidar_east_offset_m();
+    up += -ccu::device_height_m() + ccu::lidar_up_offset_m();
 
-    const ccu::GalvoDac high = ccu::galvo_angle_to_dac(4.f, 4.f);
-    check_eq_u16(high.x, 65535, "azimuth clamps at 65535");
-    check_eq_u16(high.y, 65535, "elevation clamps at 65535");
+    const float ox = ccu::galvo_mech_offset_x();
+    const float oy = ccu::galvo_mech_offset_y();
+    const float east1 = east * std::cos(ox) - north * std::sin(ox);
+    const float north1 = east * std::sin(ox) + north * std::cos(ox);
+    const float up1 = up;
+    const float east2 = east1 * std::cos(oy) + up1 * std::sin(oy);
+    const float north2 = north1;
+    const float up2 = -east1 * std::sin(oy) + up1 * std::cos(oy);
+    const ccu::GalvoMirrors mirrors = oracle_mirrors(north2, east2, up2);
+    return {ccu::galvo_dac_from_mirror(mirrors.x_rad), ccu::galvo_dac_from_mirror(mirrors.y_rad)};
 }
 
-void test_point_atan2_mirror_offset_zero() {
-    const ccu::GalvoAngle ahead = ccu::galvo_point_to_angle(1.f, 0.f, 0.f);
-    check_near(ahead.azimuth, 0.f, "straight ahead azimuth");
-    check_near(ahead.elevation, 0.f, "straight ahead elevation");
-    const ccu::GalvoDac boresight = ccu::galvo_angle_to_dac(ahead.azimuth, ahead.elevation);
-    check_eq_u16(boresight.x, ccu::kGalvoDacBoresight, "ahead point is DAC boresight X");
-    check_eq_u16(boresight.y, ccu::kGalvoDacBoresight, "ahead point is DAC boresight Y");
+void test_separation_and_mirror_order() {
+    check(ccu::kGalvoMirrorSeparationM == 0.015f, "h is 0.015 m");
+    const ccu::GalvoMirrors got = ccu::galvo_mirror_angles(1.f, 0.2f, 0.05f);
+    const ccu::GalvoMirrors want = oracle_mirrors(1.f, 0.2f, 0.05f);
+    check_near(got.y_rad, want.y_rad, "Y mirror is computed first");
+    check_near(got.x_rad, want.x_rad, "X mirror uses the Y angle");
+    check(got.x_rad != got.y_rad, "the two mirrors are not the same angle");
+}
 
-    constexpr float kHalfPi = std::numbers::pi_v<float> / 2.f;
-    const ccu::GalvoAngle left = ccu::galvo_point_to_angle(0.f, 1.f, 0.f);
-    check_near(left.azimuth, kHalfPi, "atan2 azimuth");
-    check_near(left.elevation, 0.f, "level point elevation");
+void test_trunc_and_clamp() {
+    const float scale = ccu::galvo_rad_per_dac();
+    const float plus = static_cast<float>(1.9 * static_cast<double>(scale));
+    const float minus = static_cast<float>(-1.9 * static_cast<double>(scale));
+    const float fraction = static_cast<float>(0.5 * static_cast<double>(scale));
+    check_eq_u16(ccu::galvo_dac_from_mirror(plus), 32769, "1.9 truncates toward zero to +1");
+    check_eq_u16(ccu::galvo_dac_from_mirror(minus), 32767, "-1.9 truncates toward zero to -1");
+    check_eq_u16(ccu::galvo_dac_from_mirror(fraction), 32768, "0.5 truncates toward zero, not to 1");
+    check_eq_u16(ccu::galvo_dac_from_mirror(100.f), 65535, "large angle clamps at 65535");
+    check_eq_u16(ccu::galvo_dac_from_mirror(-100.f), 0, "large negative angle clamps at 0");
+}
 
-    const ccu::GalvoAngle up = ccu::galvo_point_to_angle(1.f, 0.f, 1.f);
-    check_near(up.azimuth, 0.f, "up point azimuth");
-    check_near(up.elevation, std::atan(1.f), "atan2 elevation");
+void test_lidar_shift_moves_boresight() {
+    ccu::device_config_reset();
+    const float height = ccu::device_height_m();
+    const ccu::GalvoDac dac = ccu::galvo_plan_to_dac(0.f, 5.f, height, 0.f);
+    check(!(dac.x == 32768 && dac.y == 32768),
+          "yaw 0 plan (0, 5, DEVICE_HEIGHT) is not DAC boresight");
+    const ccu::GalvoDac want = oracle_plan(0.f, 5.f, height, 0.f);
+    check_eq_u16(dac.x, want.x, "shifted DAC X");
+    check_eq_u16(dac.y, want.y, "shifted DAC Y");
 }
 
 }  // namespace
 
 int main() {
-    test_boresight_is_32768();
-    test_round_trip();
-    test_clamp();
-    test_point_atan2_mirror_offset_zero();
+    test_separation_and_mirror_order();
+    test_trunc_and_clamp();
+    test_lidar_shift_moves_boresight();
     if (g_fails) {
         std::fprintf(stderr, "%d check(s) failed\n", g_fails);
         return 1;

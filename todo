@@ -1,10 +1,6 @@
-
-- set Pose to (0, 0, 1.276) and make sure this is used by the survey and projection routines
-- put all distances in meters
-- build LidarModel and GalvoModel, defining each mapping as a separate class method
-- define the mapping constants, keeping the models as naive as reasonable
-- Edit angle bounds and range bounds
+- Edit angle bounds and range bounds.
 - try raising telemetry to 25Hz
+- change the site name on the frontend
 
 NEW POC PLAN
 - The IMU will track tilt (roll and pitch).

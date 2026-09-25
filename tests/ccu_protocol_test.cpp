@@ -60,8 +60,8 @@ void check_bytes(const std::vector<uint8_t>& got, const uint8_t* want, std::size
 void check_node(const ccu::PlanNode& node, uint16_t id, float east, float north,
                 float inner, float orient, const char* what) {
     check_eq_u16(node.id, id, what);
-    check_eq_f(node.east_mm, east, what);
-    check_eq_f(node.north_mm, north, what);
+    check_eq_f(node.east_m, east, what);
+    check_eq_f(node.north_m, north, what);
     check_eq_f(node.corner_inner_angle_rad, inner, what);
     check_eq_f(node.corner_orientation_rad, orient, what);
 }
@@ -186,9 +186,9 @@ void test_regular_telemetry() {
     check_eq_str(unpacked->device_id, "sm-ccu", "telemetry deviceId");
     check_eq_str(unpacked->session_id, "abcd1234", "telemetry sessionId");
     check(unpacked->origin_is_set, "telemetry originIsSet");
-    check_eq_f(unpacked->pose.east_mm, 1.f, "pose east");
-    check_eq_f(unpacked->pose.north_mm, 2.f, "pose north");
-    check_eq_f(unpacked->pose.up_mm, 3.f, "pose up");
+    check_eq_f(unpacked->pose.east_m, 1.f, "pose east");
+    check_eq_f(unpacked->pose.north_m, 2.f, "pose north");
+    check_eq_f(unpacked->pose.up_m, 3.f, "pose up");
     check_eq_f(unpacked->pose.roll_rad, 4.f, "pose roll");
     check_eq_f(unpacked->pose.pitch_rad, 5.f, "pose pitch");
     check_eq_f(unpacked->pose.yaw_rad, 6.f, "pose yaw");
@@ -225,9 +225,9 @@ void test_survey_result() {
 
     ccu::SurveyResult msg;
     msg.id = 1;
-    msg.east_mm = 1.f;
-    msg.north_mm = 2.f;
-    msg.up_mm = 3.f;
+    msg.east_m = 1.f;
+    msg.north_m = 2.f;
+    msg.up_m = 3.f;
     msg.corner_inner_angle_rad = 0.5f;
     msg.corner_orientation_rad = 0.f;
     msg.surveyed = true;
@@ -242,7 +242,7 @@ void test_survey_result() {
     check(unpacked.has_value(), "SURVEY_RESULT unpacks");
     if (unpacked) {
         check_eq_u16(unpacked->id, 1, "survey id");
-        check_eq_f(unpacked->up_mm, 3.f, "survey up");
+        check_eq_f(unpacked->up_m, 3.f, "survey up");
         check(unpacked->surveyed && unpacked->success && unpacked->survey_finished, "survey flags");
         check(unpacked->error_code == ccu::SurveyError::None, "survey error none");
     }
@@ -261,7 +261,7 @@ void test_survey_result() {
     check(bad.has_value(), "failed SURVEY_RESULT unpacks");
     if (bad) {
         check_eq_u16(bad->id, 7, "failed survey id");
-        check_eq_f(bad->up_mm, 0.f, "failed survey up is 0");
+        check_eq_f(bad->up_m, 0.f, "failed survey up is 0");
         check(!bad->surveyed && !bad->success && !bad->survey_finished, "failed survey flags");
         check(bad->error_code == ccu::SurveyError::OutOfFov, "survey OUT_OF_FOV");
     }

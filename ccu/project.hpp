@@ -8,7 +8,7 @@
 namespace ccu {
 
 ProjectionReady project_begin(const std::vector<PlanNode>& nodes);
-const std::vector<PathPoint>& project_path();
+const std::vector<DacPoint>& project_path();
 void project_poll();
 void project_pause();
 void project_play();

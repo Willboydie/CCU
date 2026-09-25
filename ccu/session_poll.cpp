@@ -43,8 +43,11 @@ void send_telemetry_if_due() {
     ++telemetry_count_;
     if (telemetry_count_ <= 2 || telemetry_count_ % 10 == 0) {
         std::printf(
-            "telemetry n=%d origin=%d moved=%d pose=0,0,0,0,0,0 yaw=%.3f\n",
+            "telemetry n=%d origin=%d moved=%d pose=%.3f,%.3f,%.3f,%.3f,%.3f,%.3f yaw=%.3f\n",
             telemetry_count_, msg.origin_is_set ? 1 : 0, msg.moved ? 1 : 0,
+            static_cast<double>(msg.pose.east_m), static_cast<double>(msg.pose.north_m),
+            static_cast<double>(msg.pose.up_m), static_cast<double>(msg.pose.roll_rad),
+            static_cast<double>(msg.pose.pitch_rad), static_cast<double>(msg.pose.yaw_rad),
             static_cast<double>(msg.effective_yaw));
         std::fflush(stdout);
     }

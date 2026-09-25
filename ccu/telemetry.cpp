@@ -1,5 +1,6 @@
 #include "telemetry.hpp"
 
+#include "device_config.hpp"
 #include "session.hpp"
 
 namespace ccu {
@@ -14,7 +15,7 @@ RegularTelemetry build_regular_telemetry() {
     msg.device_id = kDeviceId;
     msg.session_id = session_id();
     msg.origin_is_set = session_origin_is_set();
-    msg.pose = {};
+    msg.pose.up_m = device_height_m();
     msg.effective_yaw = session_effective_yaw();
     msg.moved = false;
     msg.origin_set_status = OriginSetStatus::Idle;

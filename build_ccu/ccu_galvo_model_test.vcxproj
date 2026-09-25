@@ -338,6 +338,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   <ItemGroup>
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\tests\ccu_galvo_model_test.cpp" />
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\galvo_model.cpp" />
+    <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\device_config.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

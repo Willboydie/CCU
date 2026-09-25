@@ -74,10 +74,11 @@ enum class SurveyError : uint8_t {
     Aborted = 3,
 };
 
+// Cartesian components are metres.
 struct Pose {
-    float east_mm = 0.f;
-    float north_mm = 0.f;
-    float up_mm = 0.f;
+    float east_m = 0.f;
+    float north_m = 0.f;
+    float up_m = 0.f;
     float roll_rad = 0.f;
     float pitch_rad = 0.f;
     float yaw_rad = 0.f;
@@ -85,8 +86,8 @@ struct Pose {
 
 struct PlanNode {
     uint16_t id = 0;
-    float east_mm = 0.f;
-    float north_mm = 0.f;
+    float east_m = 0.f;
+    float north_m = 0.f;
     float corner_inner_angle_rad = 0.f;
     float corner_orientation_rad = 0.f;
 };
@@ -116,9 +117,9 @@ struct RegularTelemetry {
 
 struct SurveyResult {
     uint16_t id = 0;
-    float east_mm = 0.f;
-    float north_mm = 0.f;
-    float up_mm = 0.f;
+    float east_m = 0.f;
+    float north_m = 0.f;
+    float up_m = 0.f;
     float corner_inner_angle_rad = 0.f;
     float corner_orientation_rad = 0.f;
     bool surveyed = false;

@@ -21,6 +21,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $copyItems = @(
     "CMakeLists.txt",
     "ccu_ports.cfg",
+    "ccu_survey.cfg",
     "ccu",
     "tests",
     "lib",

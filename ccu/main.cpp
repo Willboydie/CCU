@@ -1,4 +1,5 @@
 #include "angle.hpp"
+#include "device_config.hpp"
 #include "dongle.hpp"
 #include "lidar.hpp"
 #include "projector.hpp"
@@ -62,6 +63,18 @@ int main(int argc, char** argv) {
     const char* cfg = argc > 1 ? argv[1] : "ccu_ports.cfg";
     Ports ports;
     if (!load_ports(cfg, ports)) return 1;
+
+    const ccu::DeviceConfigStatus survey_cfg = ccu::device_config_load("ccu_survey.cfg");
+    if (!survey_cfg.opened) {
+        std::printf("ccu_survey.cfg missing; defaults in use\n");
+    } else if (!survey_cfg.height_set) {
+        std::printf("ccu_survey.cfg DEVICE_HEIGHT missing or invalid; default in use\n");
+    }
+    std::printf("DEVICE_HEIGHT %.3f m D_MAX %.3g ANGLE_MAX %.2f\n",
+                static_cast<double>(ccu::device_height_m()),
+                static_cast<double>(ccu::d_max_m()),
+                static_cast<double>(ccu::angle_max_rad()));
+    std::fflush(stdout);
 
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);

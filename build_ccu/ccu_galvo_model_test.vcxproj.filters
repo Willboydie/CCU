@@ -7,6 +7,9 @@
     <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\galvo_model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\ccu\device_config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\CMakeLists.txt" />

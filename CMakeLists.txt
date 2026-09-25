@@ -243,19 +243,22 @@ ccu_configure_target(ccu_command_allowed_test)
 add_executable(ccu_galvo_model_test
     tests/ccu_galvo_model_test.cpp
     ccu/galvo_model.cpp
+    ccu/device_config.cpp
 )
 ccu_configure_target(ccu_galvo_model_test)
 
 add_executable(ccu_lidar_model_test
     tests/ccu_lidar_model_test.cpp
     ccu/lidar_model.cpp
+    ccu/device_config.cpp
 )
 ccu_configure_target(ccu_lidar_model_test)
-target_include_directories(ccu_lidar_model_test PRIVATE ${CMAKE_SOURCE_DIR}/lib)
 
 add_executable(ccu_path_engine_test
     tests/ccu_path_engine_test.cpp
     ccu/path_engine.cpp
+    ccu/galvo_model.cpp
+    ccu/device_config.cpp
 )
 ccu_configure_target(ccu_path_engine_test)
 
@@ -263,11 +266,13 @@ add_executable(ccu_bearing_test
     tests/ccu_bearing_test.cpp
     ccu/bearing.cpp
     ccu/yaw.cpp
+    ccu/device_config.cpp
 )
 ccu_configure_target(ccu_bearing_test)
 
 set(CCU_SESSION_SOURCES
     ccu/session.cpp
+    ccu/device_config.cpp
     ccu/command_allowed.cpp
     ccu/protocol.cpp
     ccu/yaw.cpp
@@ -275,8 +280,10 @@ set(CCU_SESSION_SOURCES
     ccu/survey.cpp
     ccu/lidar.cpp
     ccu/lidar_model.cpp
+    ccu/galvo_model.cpp
     ccu/project.cpp
     ccu/path_engine.cpp
+    ccu/projector_tx.cpp
 )
 
 add_executable(ccu_session_test

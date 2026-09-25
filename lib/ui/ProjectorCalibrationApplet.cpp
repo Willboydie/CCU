@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -30,6 +31,7 @@ namespace {
 
 constexpr int kDutyMin = 15;
 constexpr int kDutyMax = 99;
+constexpr int kMonitorMaxLines = 200;
 
 void glfw_error(int, const char* desc) {
     std::fprintf(stderr, "GLFW: %s\n", desc ? desc : "");
@@ -88,6 +90,7 @@ struct ProjectorCalibrationApplet::Impl {
     float measure_range_m = 0.0f;
 
     std::vector<ProjectorCalibDatum> logged;
+    std::deque<std::string> monitor;
 
     explicit Impl(Host& h) : host(h) {}
 
@@ -165,7 +168,7 @@ struct ProjectorCalibrationApplet::Impl {
         last_error.clear();
         char buf[128];
         std::snprintf(buf, sizeof(buf),
-                      "Measuring %s from %u  range %.4f m. Traverse 1 cm, then Log derivative.",
+                      "Measuring %s from %u  range %.4f m. Traverse 1 cm, then Log.",
                       calib_axis_name(measure_axis),
                       static_cast<unsigned>(measure_start),
                       measure_range_m);
@@ -193,18 +196,21 @@ struct ProjectorCalibrationApplet::Impl {
         logged.push_back(d);
         measuring = false;
         last_error.clear();
-        char buf[160];
-        std::snprintf(buf, sizeof(buf),
-                      "Logged %s: %u  (ΔDAC %+d, f' %.6e rad/count)",
+        char line[160];
+        std::snprintf(line, sizeof(line),
+                      "%s  start %u  ΔDAC %+d  %.6e rad/count",
                       calib_axis_name(d.axis),
                       static_cast<unsigned>(d.start),
                       delta, deriv);
-        status = buf;
+        monitor.push_back(line);
+        while (static_cast<int>(monitor.size()) > kMonitorMaxLines)
+            monitor.pop_front();
+        status = std::string("Logged ") + line;
     }
 
     void save_data() {
         if (logged.empty()) {
-            last_error = "No derivatives logged";
+            last_error = "Nothing logged";
             status = last_error;
             return;
         }
@@ -384,14 +390,15 @@ struct ProjectorCalibrationApplet::Impl {
         ImGui::TextWrapped(
             "At a start pose, align the target so the beam is normal and centred. "
             "Enter rangefinder length, pick the axis you will sweep, Begin measure, "
-            "nudge until the dot travels 1 cm, then Log derivative.");
+            "nudge until the dot travels 1 cm, then Log. "
+            "The monitor shows radians per DAC count.");
 
         ImGui::Spacing();
         ImGui::SetNextItemWidth(140);
         ImGui::InputFloat("Range (m)", &range_m, 0.01f, 0.1f, "%.4f");
         ImGui::SetItemTooltip(
             "Distance from galvo mirror to target surface, metres. "
-            "f' = (0.01 m / range) / ΔDAC.");
+            "rad/count = (0.01 m / range) / ΔDAC.");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(80);
         const char* axes[] = {"X", "Y"};
@@ -407,7 +414,7 @@ struct ProjectorCalibrationApplet::Impl {
         if (!can_begin) ImGui::EndDisabled();
         ImGui::SameLine();
         if (!can_log) ImGui::BeginDisabled();
-        if (ImGui::Button("Log derivative", ImVec2(140, 28)))
+        if (ImGui::Button("Log", ImVec2(140, 28)))
             log_derivative(x, y);
         if (!can_log) ImGui::EndDisabled();
         ImGui::SameLine();
@@ -429,14 +436,18 @@ struct ProjectorCalibrationApplet::Impl {
         }
 
         ImGui::Spacing();
-        ImGui::TextUnformatted("Logged derivatives");
-        ImGui::BeginChild("logged", ImVec2(0, 160), ImGuiChildFlags_Border);
-        if (logged.empty()) {
+        ImGui::TextUnformatted("Monitor");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Clear"))
+            monitor.clear();
+        ImGui::BeginChild("monitor", ImVec2(0, 160), ImGuiChildFlags_Border);
+        if (monitor.empty()) {
             ImGui::TextDisabled("(none)");
         } else {
-            for (const auto& d : logged)
-                ImGui::Text("%s: %u", calib_axis_name(d.axis),
-                            static_cast<unsigned>(d.start));
+            for (const auto& line : monitor)
+                ImGui::TextUnformatted(line.c_str());
+            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 8)
+                ImGui::SetScrollHereY(1.0f);
         }
         ImGui::EndChild();
 

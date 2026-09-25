@@ -1,0 +1,8 @@
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\tests\projector_calibration_gui.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\projector_calibration_gui.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\ui\ProjectorCalibrationApplet.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\ProjectorCalibrationApplet.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\rx\serial\SerialDevice.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\SerialDevice.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\rx\parser\DeviceParser.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\DeviceParser.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\rx\parser\ProjectorParser.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\ProjectorParser.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\rx\msg_queue\MessageQueue.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\MessageQueue.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\rx\MessageConsumer.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\MessageConsumer.obj
+C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\lib\tx\ProjectorController.cpp;C:\Users\Will Boyd\OneDrive\projects\smart_marker\CCU\build_ccu\projector_calibration_gui.dir\Release\ProjectorController.obj
